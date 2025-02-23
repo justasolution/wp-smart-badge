@@ -1,0 +1,25 @@
+{
+    "name": "wp-smart-badge/wp-smart-badge",
+    "description": "Professional ID Badge Generator for WordPress",
+    "type": "wordpress-plugin",
+    "license": "GPL-2.0-or-later",
+    "require": {
+        "php": ">=7.4",
+        "mpdf/mpdf": "^8.1",
+        "bacon/bacon-qr-code": "^2.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "WpSmartBadge\\": "includes/",
+            "WpSmartBadge\\Templates\\": "includes/templates/"
+        }
+    },
+    "config": {
+        "allow-plugins": {
+            "composer/installers": true
+        },
+        "optimize-autoloader": true,
+        "preferred-install": "dist",
+        "sort-packages": true
+    }
+}

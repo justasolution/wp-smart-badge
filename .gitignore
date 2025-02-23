@@ -1,0 +1,38 @@
+# Dependencies
+/vendor/
+/node_modules/
+
+# Composer
+composer.phar
+/vendor/
+composer.lock
+
+# IDE and editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+*.swn
+.DS_Store
+
+# Cache and temporary files
+/vendor/mpdf/mpdf/ttfonts/
+/vendor/mpdf/mpdf/tmp/
+*.cache
+*.log
+
+# Build files
+/dist/
+/build/
+
+# WordPress specific
+*.log
+wp-config.php
+wp-content/advanced-cache.php
+wp-content/backup-db/
+wp-content/backups/
+wp-content/blogs.dir/
+wp-content/cache/
+wp-content/upgrade/
+wp-content/uploads/
+wp-content/wp-cache-config.php

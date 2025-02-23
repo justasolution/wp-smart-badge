@@ -1,0 +1,334 @@
+/* Badge Template Customizer Styles */
+
+.badge-preview {
+    background: #fff;
+    border: 1px solid #ddd;
+    padding: 20px;
+    margin-bottom: 20px;
+    position: relative;
+}
+
+.badge-content {
+    position: relative !important;
+    background: #fff;
+    border: 1px solid #ddd;
+    min-height: 300px;
+    transition: all 0.2s ease;
+    transition: border-color 0.3s;
+}
+
+.badge-content.show-grid {
+    background-image: linear-gradient(to right, rgba(0,0,0,.1) 1px, transparent 1px),
+                      linear-gradient(to bottom, rgba(0,0,0,.1) 1px, transparent 1px);
+    background-size: 5px 5px;
+}
+
+.badge-content.ui-droppable-active {
+    border-color: #2271b1;
+}
+
+.badge-content.ui-droppable-hover {
+    border-style: dashed;
+    background-color: rgba(34, 113, 177, 0.05);
+}
+
+.badge-field {
+    position: absolute !important;
+    background: rgba(255,255,255,0.95);
+    border: 1px solid #ddd;
+    border-radius: 3px;
+    padding: 5px 8px;
+    min-width: 60px;
+    cursor: move;
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.badge-field.ui-draggable-dragging {
+    opacity: 0.8;
+    z-index: 1000;
+}
+
+.badge-field:hover {
+    border-color: #007cba;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.badge-field .field-content {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 12px;
+}
+
+.badge-field .dashicons {
+    font-size: 14px;
+    width: 14px;
+    height: 14px;
+    color: #666;
+    width: 20px;
+    height: 20px;
+    font-size: 20px;
+    color: #1d2327;
+}
+
+.field-coords {
+    position: absolute;
+    bottom: -18px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 10px;
+    color: #666;
+    white-space: nowrap;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.badge-field:hover .field-coords {
+    opacity: 1;
+}
+
+.resize-handles {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    pointer-events: none;
+}
+
+.resize-handle {
+    position: absolute;
+    width: 6px;
+    height: 6px;
+    background: #fff;
+    border: 1px solid #007cba;
+    pointer-events: all;
+    cursor: nw-resize;
+}
+
+.resize-handle.top-left {
+    top: -3px;
+    left: -3px;
+    cursor: nw-resize;
+}
+
+.resize-handle.top-right {
+    top: -3px;
+    right: -3px;
+    cursor: ne-resize;
+}
+
+.resize-handle.bottom-left {
+    bottom: -3px;
+    left: -3px;
+    cursor: sw-resize;
+}
+
+.resize-handle.bottom-right {
+    bottom: -3px;
+    right: -3px;
+    cursor: se-resize;
+}
+
+.field-edit-input {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    padding: 5px;
+    border: 1px solid #007cba;
+    border-radius: 3px;
+    font-size: inherit;
+    background: #fff;
+    z-index: 10;
+}
+
+.remove-field {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    width: 16px;
+    height: 16px;
+    background: #dc3545;
+    color: #fff;
+    border-radius: 50%;
+    font-size: 12px;
+    line-height: 16px;
+    text-align: center;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.badge-field:hover .remove-field {
+    opacity: 1;
+}
+
+.badge-content.drag-over {
+    border: 2px dashed #007cba;
+    background-color: rgba(0,124,186,0.05);
+}
+
+/* Template Selection */
+.template-selection {
+    margin-bottom: 20px;
+}
+
+/* Style Options */
+.style-group {
+    margin-bottom: 20px;
+    padding: 15px;
+    background: #f9f9f9;
+    border: 1px solid #e5e5e5;
+    border-radius: 4px;
+}
+
+.style-option {
+    margin-bottom: 10px;
+}
+
+.style-option label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: 500;
+}
+
+.style-option select {
+    width: 100%;
+}
+
+/* Color Picker Customization */
+.wp-picker-container {
+    display: block;
+    margin-top: 5px;
+}
+
+.wp-picker-container .wp-color-result.button {
+    margin: 0;
+}
+
+/* Field Items */
+.field-group {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.field-item {
+    padding: 10px;
+    background: #f5f5f5;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    cursor: move;
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    transition: all 0.2s ease;
+}
+
+.field-item:hover {
+    background: #f0f0f0;
+    border-color: #999;
+}
+
+.field-item .dashicons {
+    color: #666;
+}
+
+.field-item.ui-draggable-dragging {
+    opacity: 0.8;
+    z-index: 1000;
+}
+
+/* Template Actions */
+.template-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+.template-actions .button {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.template-actions .button .dashicons {
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+}
+
+/* Badge Preview */
+.badge-preview {
+    position: relative;
+    margin: 0 auto;
+    background: #fff;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.badge-side {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: #fff;
+    display: none;
+}
+
+.badge-side.active {
+    display: block;
+}
+
+.switch-side {
+    position: absolute;
+    bottom: -40px;
+    left: 50%;
+    transform: translateX(-50%);
+    white-space: nowrap;
+}
+
+/* Responsive Design */
+@media screen and (max-width: 782px) {
+    .template-workspace {
+        flex-direction: column;
+    }
+    
+    .template-sidebar {
+        max-width: none;
+        margin-top: 20px;
+    }
+    
+    .field-group {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Grid System */
+.badge-content.show-grid {
+    background-image: linear-gradient(rgba(0,0,0,.1) 1px, transparent 1px),
+                      linear-gradient(90deg, rgba(0,0,0,.1) 1px, transparent 1px);
+    background-size: 20px 20px;
+}
+
+/* Ensure draggable helper is visible */
+.ui-draggable-helper {
+    z-index: 9999;
+}

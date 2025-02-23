@@ -1,0 +1,83 @@
+.wrap {
+    margin: 10px 20px 0 2px;
+}
+
+.card {
+    background: #fff;
+    border: 1px solid #ccd0d4;
+    border-radius: 4px;
+    margin-top: 20px;
+    padding: 20px;
+}
+
+.card-header {
+    margin: 0;
+    padding: 15px 20px;
+    border-bottom: 1px solid #ccd0d4;
+    background: #f8f9fa;
+}
+
+.card h2 {
+    margin-top: 0;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #eee;
+}
+
+#badge_preview {
+    min-height: 200px;
+    border: 1px dashed #ccc;
+    margin: 10px 0;
+    padding: 20px;
+    text-align: center;
+    background: #f9f9f9;
+}
+
+.button {
+    margin-right: 10px;
+}
+
+.button-small {
+    padding: 2px 8px;
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+.error {
+    color: #dc3232;
+    font-weight: 500;
+}
+
+/* AG Grid Customizations */
+.ag-theme-alpine {
+    --ag-header-height: 40px;
+    --ag-header-foreground-color: #2c3338;
+    --ag-header-background-color: #f0f0f1;
+    --ag-row-hover-color: #f0f6fc;
+    --ag-selected-row-background-color: #e5f1f8;
+    font-family: -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Oxygen-Sans,Ubuntu,Cantarell,"Helvetica Neue",sans-serif;
+}
+
+.ag-theme-alpine .ag-header-cell {
+    font-weight: 600;
+}
+
+.ag-theme-alpine .ag-cell {
+    padding-left: 10px;
+    padding-right: 10px;
+}
+
+.ag-theme-alpine .ag-row-hover {
+    background-color: var(--ag-row-hover-color) !important;
+}
+
+.ag-theme-alpine .ag-row-selected {
+    background-color: var(--ag-selected-row-background-color) !important;
+}
+
+.ag-theme-alpine .ag-root {
+    border: none;
+}
+
+#userGrid {
+    width: 100% !important;
+}
