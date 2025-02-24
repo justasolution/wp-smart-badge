@@ -22,9 +22,6 @@ class Template_Customizer {
         // Add AJAX handlers
         add_action('wp_ajax_wp_smart_badge_get_template_data', array($this, 'ajax_get_template_data'));
         add_action('wp_ajax_wp_smart_badge_save_template', array($this, 'ajax_save_template'));
-
-        // Debug log
-        error_log('Template Customizer initialized with version: ' . $version);
     }
 
     private function init_template_options() {
@@ -108,17 +105,14 @@ class Template_Customizer {
     }
 
     public function add_templates_page() {
-        $hook = add_submenu_page(
+        add_submenu_page(
             'edit.php?post_type=smart_badge',
             __('Badge Templates', 'wp-smart-badge'),
             __('Templates', 'wp-smart-badge'),
             'manage_options',
-            'wp-smart-badge-templates',
+            'badge-templates',
             array($this, 'render_templates_page')
         );
-
-        // Debug log the hook name
-        error_log('Template Customizer - Templates page hook: ' . $hook);
     }
 
     public function register_preview_page() {
@@ -143,7 +137,7 @@ class Template_Customizer {
         }
 
         // Log to confirm the method is called
-        error_log('Enqueuing template customizer scripts');
+        error_log('Enqueue scripts called for hook: ' . $hook);
 
         // Enqueue jQuery UI and its dependencies
         wp_enqueue_script('jquery');

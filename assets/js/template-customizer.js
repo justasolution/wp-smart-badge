@@ -8,15 +8,14 @@ jQuery(document).ready(function($) {
     }
     window.templateCustomizerInitialized = true;
     
-    // Constants and state management
+    // Constants
     const GRID_SIZE = 10;
-    let isDragging = false;
-    let currentDragItem = null;
     let showGrid = false;
     let activeTemplate = null;
+    let isDragging = false;
     let isResizing = false;
     let activeField = null;
-
+    
     console.log('Template Customizer initialized');
 
     // Default templates
@@ -85,97 +84,95 @@ jQuery(document).ready(function($) {
         }
     };
 
-    // Initialize draggable elements
+    // Initialize color pickers
+    $('.color-picker').wpColorPicker({
+        change: function(event, ui) {
+            updateBadgeStyle();
+        }
+    });
+
+    // Initialize draggable fields
     function initDraggable() {
         console.log('Initializing draggable elements');
         
         // Make field items draggable
         $('.field-item').draggable({
             helper: 'clone',
-            appendTo: 'body',
-            zIndex: 1000,
-            cursor: 'move',
-            cursorAt: { top: 15, left: 15 },
             start: function(event, ui) {
-                isDragging = true;
-                currentDragItem = $(this);
-                console.log('Drag started:', $(this).data('field'));
-                
-                // Style the helper
-                ui.helper.addClass('dragging').css({
-                    'opacity': '0.8',
-                    'transform': 'scale(0.95)',
-                    'transition': 'all 0.2s'
+                console.log('Drag started:', {
+                    field: $(this).data('field'),
+                    position: ui.position
                 });
+                $(this).addClass('dragging');
             },
             stop: function(event, ui) {
-                isDragging = false;
-                currentDragItem = null;
                 console.log('Drag stopped');
+                $(this).removeClass('dragging');
             }
         });
 
         // Make existing badge fields draggable
         $('.badge-field').draggable({
-            containment: 'parent',
-            grid: [GRID_SIZE, GRID_SIZE],
-            cursor: 'move',
-            handle: '.dashicons',
+            containment: '.badge-content',
             start: function(event, ui) {
-                $(this).addClass('dragging');
-                console.log('Field drag started');
-            },
-            drag: function(event, ui) {
-                // Snap to grid
-                ui.position.left = Math.round(ui.position.left / GRID_SIZE) * GRID_SIZE;
-                ui.position.top = Math.round(ui.position.top / GRID_SIZE) * GRID_SIZE;
+                console.log('Existing field drag started:', {
+                    position: ui.position
+                });
             },
             stop: function(event, ui) {
-                $(this).removeClass('dragging');
-                console.log('Field drag stopped at:', { x: ui.position.left, y: ui.position.top });
+                console.log('Existing field drag stopped:', {
+                    finalPosition: ui.position
+                });
+                updateFieldPosition($(this));
             }
         });
     }
 
-    // Initialize droppable areas
-    function initDroppable() {
-        console.log('Initializing droppable areas');
-        
-        $('.badge-content').droppable({
-            accept: '.field-item, .badge-field',
-            tolerance: 'pointer',
-            over: function(event, ui) {
-                $(this).addClass('drop-hover');
-            },
-            out: function(event, ui) {
-                $(this).removeClass('drop-hover');
-            },
-            drop: function(event, ui) {
-                const $container = $(this);
-                $container.removeClass('drop-hover');
-
-                // Get the drop position relative to the container
-                const containerOffset = $container.offset();
-                const dropX = Math.round((event.pageX - containerOffset.left) / GRID_SIZE) * GRID_SIZE;
-                const dropY = Math.round((event.pageY - containerOffset.top) / GRID_SIZE) * GRID_SIZE;
-
-                if (ui.helper.hasClass('field-item')) {
-                    // Add new field
-                    const fieldType = ui.draggable.data('field');
-                    addNewField($container, fieldType, dropX, dropY);
-                } else {
-                    // Update existing field position
-                    updateFieldPosition(ui.draggable, dropX, dropY);
+    // Make badge content areas droppable
+    $('.badge-content').droppable({
+        accept: '.field-item, .badge-field',
+        over: function(event, ui) {
+            console.log('Draggable over drop target');
+            $(this).addClass('drag-over');
+        },
+        out: function(event, ui) {
+            console.log('Draggable left drop target');
+            $(this).removeClass('drag-over');
+        },
+        drop: function(event, ui) {
+            console.log('Drop event triggered', {
+                target: this.id,
+                offset: {
+                    left: event.pageX - $(this).offset().left,
+                    top: event.pageY - $(this).offset().top
                 }
+            });
+            
+            $(this).removeClass('drag-over');
+            
+            const isNewField = ui.draggable.hasClass('field-item');
+            if (isNewField) {
+                console.log('Adding new field');
+                addNewField($(this), ui.draggable, event);
+            } else {
+                console.log('Updating existing field position');
+                updateFieldPosition(ui.draggable);
             }
+        }
+    });
+
+    function addNewField($container, $draggedItem, event) {
+        const fieldType = $draggedItem.data('field');
+        const containerOffset = $container.offset();
+        const x = event.pageX - containerOffset.left;
+        const y = event.pageY - containerOffset.top;
+
+        console.log('Adding new field:', {
+            type: fieldType,
+            position: { x, y }
         });
-    }
 
-    // Add a new field to the badge
-    function addNewField($container, fieldType, x, y) {
-        console.log('Adding new field:', { type: fieldType, x, y });
-
-        const $field = $('<div>', {
+        const $newField = $('<div>', {
             class: 'badge-field',
             'data-field': fieldType,
             css: {
@@ -192,83 +189,70 @@ jQuery(document).ready(function($) {
             text: getFieldLabel(fieldType)
         });
 
-        const $remove = $('<span>', {
+        const $removeBtn = $('<span>', {
             class: 'remove-field',
             html: '×',
             click: function(e) {
                 e.stopPropagation();
+                console.log('Removing field:', fieldType);
                 $(this).parent().remove();
             }
         });
 
-        $field.append($icon, $text, $remove);
-        $container.append($field);
+        $newField.append($icon, $text, $removeBtn);
+        $container.append($newField);
 
         // Make the new field draggable
-        $field.draggable({
-            containment: 'parent',
-            grid: [GRID_SIZE, GRID_SIZE],
-            cursor: 'move',
-            handle: '.dashicons',
+        $newField.draggable({
+            containment: $container,
             start: function(event, ui) {
-                $(this).addClass('dragging');
-            },
-            drag: function(event, ui) {
-                ui.position.left = Math.round(ui.position.left / GRID_SIZE) * GRID_SIZE;
-                ui.position.top = Math.round(ui.position.top / GRID_SIZE) * GRID_SIZE;
+                console.log('New field drag started');
             },
             stop: function(event, ui) {
-                $(this).removeClass('dragging');
+                console.log('New field drag stopped:', {
+                    position: ui.position
+                });
+                updateFieldPosition($(this));
             }
         });
     }
 
-    // Update field position
-    function updateFieldPosition($field, x, y) {
-        $field.css({
-            left: x + 'px',
-            top: y + 'px'
+    function updateFieldPosition($field) {
+        const position = $field.position();
+        console.log('Field position updated:', {
+            field: $field.data('field'),
+            position: position
         });
     }
 
-    // Get field icon class based on field type
     function getFieldIcon(fieldType) {
         const icons = {
-            'photo': 'dashicons-format-image',
-            'name': 'dashicons-admin-users',
-            'id': 'dashicons-id',
-            'designation': 'dashicons-businessman',
-            'department': 'dashicons-groups',
-            'blood_group': 'dashicons-heart',
-            'qr_code': 'dashicons-qr-code'
+            photo: 'dashicons-format-image',
+            name: 'dashicons-admin-users',
+            id: 'dashicons-id',
+            designation: 'dashicons-businessman',
+            department: 'dashicons-groups',
+            blood_group: 'dashicons-heart',
+            qr_code: 'dashicons-qr-code'
         };
         return icons[fieldType] || 'dashicons-plus';
     }
 
-    // Get field label based on field type
     function getFieldLabel(fieldType) {
         const labels = {
-            'photo': 'Photo',
-            'name': 'Name',
-            'id': 'Employee ID',
-            'designation': 'Designation',
-            'department': 'Department',
-            'blood_group': 'Blood Group',
-            'qr_code': 'QR Code'
+            photo: 'Photo',
+            name: 'Name',
+            id: 'Employee ID',
+            designation: 'Designation',
+            department: 'Department',
+            blood_group: 'Blood Group',
+            qr_code: 'QR Code'
         };
         return labels[fieldType] || fieldType;
     }
 
-    // Initialize color pickers
-    $('.color-picker').wpColorPicker({
-        change: function(event, ui) {
-            updateBadgeStyle();
-        }
-    });
-
-    // Initialize drag and drop
+    // Initialize draggable elements
     initDraggable();
-    initDroppable();
 
     // Button click handlers
     $('#preview_template').on('click', function() {
@@ -443,18 +427,11 @@ jQuery(document).ready(function($) {
 
         $field.draggable({
             containment: 'parent',
-            grid: [GRID_SIZE, GRID_SIZE],
-            cursor: 'move',
-            handle: '.dashicons',
             start: function(event, ui) {
-                $(this).addClass('dragging');
-            },
-            drag: function(event, ui) {
-                ui.position.left = Math.round(ui.position.left / GRID_SIZE) * GRID_SIZE;
-                ui.position.top = Math.round(ui.position.top / GRID_SIZE) * GRID_SIZE;
+                console.log('Field drag started');
             },
             stop: function(event, ui) {
-                $(this).removeClass('dragging');
+                console.log('Field drag stopped');
             }
         });
     }
@@ -589,4 +566,8 @@ jQuery(document).ready(function($) {
             openPreview();
         });
     });
+
+    // Initialize
+    initDraggable();
+    loadTemplate($('#template_select').val());
 });

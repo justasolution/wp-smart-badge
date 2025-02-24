@@ -13,10 +13,15 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
+if (!defined('WP_SMART_BADGE_FILE')) {
+    define('WP_SMART_BADGE_FILE', __FILE__);
+}
+
 // Define plugin constants
 define('WP_SMART_BADGE_VERSION', '1.0.0');
 define('WP_SMART_BADGE_PATH', plugin_dir_path(__FILE__));
-define('WP_SMART_BADGE_URL', plugin_dir_url(__FILE__));
+define('WP_SMART_BADGE_URL', plugins_url('', __FILE__));
+define('WP_SMART_BADGE_LOGO_URL', 'http://smartidportal.justasolutionaway.com/wp-content/uploads/2025/02/png-transparent-guntur-vijayawada-bus-nellore-andhra-pradesh-state-road-transport-corporation-bus-removebg-preview-e1740051277257.png');
 
 // Add this near the top of the file, after defining constants
 if (!defined('WP_DEBUG')) {
@@ -186,6 +191,14 @@ try {
         throw new Exception('Retired officer template class file not found at: ' . $retired_template);
     }
     
+    // $vertical_card_template = WP_SMART_BADGE_PATH . 'includes/templates/class-vertical-card-template.php';
+    // if (file_exists($vertical_card_template)) {
+    //     require_once $vertical_card_template;
+    //     wp_smart_badge_log('Vertical card template class loaded');
+    // } else {
+    //     throw new Exception('Vertical card template class file not found at: ' . $vertical_card_template);
+    // }
+    
     wp_smart_badge_log('All template classes loaded successfully');
 } catch (Exception $e) {
     wp_smart_badge_log('Error loading template classes: ' . $e->getMessage());
@@ -196,6 +209,7 @@ try {
 use WpSmartBadge\Templates\BadgeTemplate;
 use WpSmartBadge\Templates\ActiveEmployeeTemplate;
 use WpSmartBadge\Templates\RetiredOfficerTemplate;
+use WpSmartBadge\Templates\Class34Template;
 
 use WpSmartBadge\Badge_Generator;
 
@@ -323,14 +337,14 @@ function wp_smart_badge_admin_assets($hook) {
     // Plugin assets
     wp_enqueue_style(
         'wp-smart-badge-admin',
-        WP_SMART_BADGE_URL . 'assets/css/admin.css',
+        plugins_url('/assets/css/admin.css', __FILE__),
         array('ag-grid', 'ag-grid-theme'),
         WP_SMART_BADGE_VERSION
     );
     
     wp_enqueue_script(
         'wp-smart-badge-admin',
-        WP_SMART_BADGE_URL . 'assets/js/admin.js',
+        plugins_url('/assets/js/admin.js', __FILE__),
         array('jquery', 'ag-grid'),
         WP_SMART_BADGE_VERSION,
         true
@@ -339,7 +353,10 @@ function wp_smart_badge_admin_assets($hook) {
     // Localize script with user data endpoint
     wp_localize_script('wp-smart-badge-admin', 'wpSmartBadge', array(
         'ajaxUrl' => admin_url('admin-ajax.php'),
-        'nonce' => wp_create_nonce('wp_smart_badge_nonce')
+        'nonce' => wp_create_nonce('wp_smart_badge_nonce'),
+        'pluginUrl' => plugins_url('', __FILE__),
+        'defaultAvatar' => plugins_url('/assets/images/default-avatar.jpg', __FILE__),
+        'previewKey' => wp_create_nonce('preview_badge')
     ));
 }
 
@@ -371,30 +388,25 @@ function wp_smart_badge_get_users_data() {
                 return isset($user_meta[$key]) && !empty($user_meta[$key][0]) ? $user_meta[$key][0] : '';
             };
             
-            // Format user data with proper meta field handling
+            // Get all relevant user data
             $formatted_users[] = array(
                 'ID' => $user->ID,
-                'emp_id' => $get_meta_value('emp_id') ?: $user->user_login,
-                'emp_full_name' => $get_meta_value('emp_full_name') ?: $user->display_name,
-                'emp_designation' => $get_meta_value('emp_designation') ?: $user->roles[0],
+                'user_email' => $user->user_email,
+                'display_name' => $user->display_name,
+                'emp_id' => $get_meta_value('emp_id'),
+                'emp_full_name' => $get_meta_value('emp_full_name'),
+                'emp_cfms_id' => $get_meta_value('emp_cfms_id'),
+                'emp_hrms_id' => $get_meta_value('emp_hrms_id'),
+                'emp_designation' => $get_meta_value('emp_designation'),
                 'emp_department' => $get_meta_value('emp_department'),
                 'emp_phone' => $get_meta_value('emp_phone'),
                 'emp_blood_group' => $get_meta_value('emp_blood_group'),
-                'emp_cfms_id' => $get_meta_value('emp_cfms_id'),
-                'emp_hrms_id' => $get_meta_value('emp_hrms_id'),
                 'emp_ehs_card' => $get_meta_value('emp_ehs_card'),
                 'emp_emergency_contact' => $get_meta_value('emp_emergency_contact'),
+                'emp_status' => $get_meta_value('emp_status'),
                 'emp_barcode' => $get_meta_value('emp_barcode'),
-                'user_email' => $user->user_email,
-                'display_name' => $user->display_name,
-                'user_registered' => $user->user_registered
+                'emp_photo' => $get_meta_value('emp_photo')
             );
-
-            // Log the meta data for debugging
-            wp_smart_badge_log('User Meta Data for ID ' . $user->ID, [
-                'meta' => $user_meta,
-                'formatted' => end($formatted_users)
-            ]);
         }
     }
     
@@ -1613,7 +1625,7 @@ add_action('admin_enqueue_scripts', function($hook) {
     // Enqueue template customizer
     wp_enqueue_script(
         'smart-badge-template-customizer',
-        plugins_url('assets/js/template-customizer.js', __FILE__),
+        plugins_url('/assets/js/template-customizer.js', __FILE__),
         array('jquery', 'jquery-ui-core', 'jquery-ui-draggable', 'jquery-ui-droppable', 'wp-color-picker'),
         filemtime(plugin_dir_path(__FILE__) . 'assets/js/template-customizer.js'),
         true
@@ -1632,7 +1644,7 @@ add_action('admin_enqueue_scripts', function($hook) {
     // Add jQuery UI styles
     wp_enqueue_style(
         'jquery-ui-style',
-        plugins_url('assets/css/jquery-ui.min.css', __FILE__),
+        plugins_url('/assets/css/jquery-ui.min.css', __FILE__),
         array(),
         '1.13.2'
     );
@@ -1685,16 +1697,436 @@ require_once WP_SMART_BADGE_PATH . 'includes/class-template-customizer.php';
 function wp_smart_badge_init() {
     global $template_customizer;
     
+    // Load template files
+    // require_once WP_SMART_BADGE_PATH . 'includes/templates/class-badge-template.php';
+    // require_once WP_SMART_BADGE_PATH . 'includes/templates/class-class-3-4-template.php';
+    // require_once WP_SMART_BADGE_PATH . 'includes/templates/class-vertical-card-template.php';
+    
     // Initialize main components
     $badge_generator = new WpSmartBadge\Badge_Generator();
     $data_importer = new WpSmartBadge\Data_Importer();
-    $template_customizer = new WpSmartBadge\Template_Customizer('wp-smart-badge', WP_SMART_BADGE_VERSION);
-    
-    // Debug log
-    error_log('WP Smart Badge initialized with components');
+    $template_customizer = new WpSmartBadge\Template_Customizer(WP_SMART_BADGE_VERSION);
     
     // Register AJAX handlers
     add_action('wp_ajax_generate_badge', [$badge_generator, 'ajax_generate_badge']);
     add_action('wp_ajax_get_employees_data', [$badge_generator, 'get_employees_data']);
 }
 add_action('plugins_loaded', 'wp_smart_badge_init');
+
+// AJAX endpoint for adding a new user
+add_action('wp_ajax_add_new_user', 'wp_smart_badge_add_new_user');
+function wp_smart_badge_add_new_user() {
+    check_ajax_referer('wp_smart_badge_nonce', 'nonce');
+    
+    if (!current_user_can('create_users')) {
+        wp_send_json_error('Permission denied');
+        return;
+    }
+    
+    $user_data = array(
+        'user_login'    => sanitize_text_field($_POST['emp_id']),
+        'user_pass'     => wp_generate_password(),
+        'user_email'    => sanitize_email($_POST['user_email']),
+        'display_name'  => sanitize_text_field($_POST['emp_full_name']),
+        'role'         => 'subscriber'
+    );
+    
+    $user_id = wp_insert_user($user_data);
+    
+    if (is_wp_error($user_id)) {
+        wp_send_json_error($user_id->get_error_message());
+        return;
+    }
+    
+    // Add user meta
+    $meta_fields = array(
+        'emp_id', 'emp_full_name', 'emp_designation', 'emp_department',
+        'emp_phone', 'emp_blood_group', 'emp_cfms_id', 'emp_hrms_id',
+        'emp_status', 'emp_emergency_contact', 'emp_ehs_card'
+    );
+    
+    foreach ($meta_fields as $field) {
+        if (isset($_POST[$field])) {
+            update_user_meta($user_id, $field, sanitize_text_field($_POST[$field]));
+        }
+    }
+    
+    // Handle base64 image data
+    if (isset($_POST['emp_photo_data']) && !empty($_POST['emp_photo_data'])) {
+        $upload_dir = wp_upload_dir();
+        $upload_path = $upload_dir['path'];
+        $upload_url = $upload_dir['url'];
+        
+        // Decode base64 data
+        $image_parts = explode(";base64,", $_POST['emp_photo_data']);
+        $image_base64 = base64_decode($image_parts[1]);
+        
+        // Generate unique filename
+        $filename = 'user_' . $user_id . '_' . time() . '.jpg';
+        $file_path = $upload_path . '/' . $filename;
+        $file_url = $upload_url . '/' . $filename;
+        
+        // Save the file
+        file_put_contents($file_path, $image_base64);
+        
+        // Create attachment
+        $attachment_data = array(
+            'post_mime_type' => 'image/jpeg',
+            'post_title'     => sanitize_file_name($filename),
+            'post_content'   => '',
+            'post_status'    => 'inherit'
+        );
+        
+        $attach_id = wp_insert_attachment($attachment_data, $file_path);
+        
+        if (!is_wp_error($attach_id)) {
+            require_once(ABSPATH . 'wp-admin/includes/image.php');
+            
+            // Generate metadata and thumbnails
+            $attach_data = wp_generate_attachment_metadata($attach_id, $file_path);
+            wp_update_attachment_metadata($attach_id, $attach_data);
+            
+            // Update user meta and avatar
+            update_user_meta($user_id, 'emp_photo', $file_url);
+            update_user_meta($user_id, '_emp_photo_attachment_id', $attach_id);
+            
+            // Set as user's avatar in WordPress
+            update_user_meta($user_id, 'wp_smart_badge_avatar', $file_url);
+            
+            // Force refresh of avatar cache
+            clean_user_cache($user_id);
+            
+            // Update user's local avatar if the plugin is active
+            if (function_exists('update_local_avatar')) {
+                update_local_avatar($user_id, $attach_id);
+            }
+        }
+    }
+    
+    wp_send_json_success(array(
+        'message' => 'User added successfully',
+        'user_id' => $user_id
+    ));
+}
+
+// Hook into WordPress avatar system
+add_filter('get_avatar_url', 'wp_smart_badge_get_avatar_url', 10, 3);
+function wp_smart_badge_get_avatar_url($url, $id_or_email, $args) {
+    // Get user ID from email if necessary
+    $user_id = 0;
+    if (is_numeric($id_or_email)) {
+        $user_id = $id_or_email;
+    } elseif (is_string($id_or_email)) {
+        $user = get_user_by('email', $id_or_email);
+        if ($user) {
+            $user_id = $user->ID;
+        }
+    } elseif (is_object($id_or_email)) {
+        if (!empty($id_or_email->user_id)) {
+            $user_id = $id_or_email->user_id;
+        }
+    }
+    
+    if ($user_id) {
+        $custom_avatar = get_user_meta($user_id, 'emp_photo', true);
+        if ($custom_avatar) {
+            return $custom_avatar;
+        }
+    }
+    
+    return $url;
+}
+
+// AJAX endpoint for updating user photos
+add_action('wp_ajax_update_user_photo', 'wp_smart_badge_update_user_photo');
+function wp_smart_badge_update_user_photo() {
+    check_ajax_referer('wp_smart_badge_nonce', 'nonce');
+    
+    if (!current_user_can('edit_users')) {
+        wp_send_json_error('Permission denied');
+        return;
+    }
+    
+    $user_id = intval($_POST['user_id']);
+    
+    if (!$user_id) {
+        wp_send_json_error('Invalid user ID');
+        return;
+    }
+    
+    // Handle base64 image data
+    if (isset($_POST['photo_data']) && !empty($_POST['photo_data'])) {
+        $upload_dir = wp_upload_dir();
+        $upload_path = $upload_dir['path'];
+        $upload_url = $upload_dir['url'];
+        
+        // Decode base64 data
+        $image_parts = explode(";base64,", $_POST['photo_data']);
+        $image_base64 = base64_decode($image_parts[1]);
+        
+        // Generate unique filename
+        $filename = 'user_' . $user_id . '_' . time() . '.jpg';
+        $file_path = $upload_path . '/' . $filename;
+        $file_url = $upload_url . '/' . $filename;
+        
+        // Save the file
+        file_put_contents($file_path, $image_base64);
+        
+        // Create attachment
+        $attachment_data = array(
+            'post_mime_type' => 'image/jpeg',
+            'post_title'     => sanitize_file_name($filename),
+            'post_content'   => '',
+            'post_status'    => 'inherit'
+        );
+        
+        $attach_id = wp_insert_attachment($attachment_data, $file_path);
+        
+        if (!is_wp_error($attach_id)) {
+            require_once(ABSPATH . 'wp-admin/includes/image.php');
+            
+            // Generate metadata and thumbnails
+            $attach_data = wp_generate_attachment_metadata($attach_id, $file_path);
+            wp_update_attachment_metadata($attach_id, $attach_data);
+            
+            // Update user meta and avatar
+            update_user_meta($user_id, 'emp_photo', $file_url);
+            update_user_meta($user_id, '_emp_photo_attachment_id', $attach_id);
+            update_user_meta($user_id, 'wp_smart_badge_avatar', $file_url);
+            
+            // Force refresh of avatar cache
+            clean_user_cache($user_id);
+            
+            // Update user's local avatar if the plugin is active
+            if (function_exists('update_local_avatar')) {
+                update_local_avatar($user_id, $attach_id);
+            }
+            
+            wp_send_json_success(array(
+                'message' => 'Profile picture updated successfully',
+                'url' => $file_url
+            ));
+            return;
+        }
+    }
+    
+    wp_send_json_error('Failed to update profile picture');
+}
+
+// AJAX endpoint for updating user
+add_action('wp_ajax_update_user', 'wp_smart_badge_update_user');
+function wp_smart_badge_update_user() {
+    check_ajax_referer('wp_smart_badge_nonce', 'nonce');
+    
+    if (!current_user_can('edit_users')) {
+        wp_send_json_error('Permission denied');
+        return;
+    }
+    
+    $user_id = intval($_POST['user_id']);
+    
+    if (!$user_id) {
+        wp_send_json_error('Invalid user ID');
+        return;
+    }
+    
+    // Update user data
+    $user_data = array(
+        'ID'            => $user_id,
+        'user_email'    => sanitize_email($_POST['user_email']),
+        'display_name'  => sanitize_text_field($_POST['emp_full_name'])
+    );
+    
+    $user_id = wp_update_user($user_data);
+    
+    if (is_wp_error($user_id)) {
+        wp_send_json_error($user_id->get_error_message());
+        return;
+    }
+    
+    // Update user meta
+    $meta_fields = array(
+        'emp_id', 'emp_full_name', 'emp_designation', 'emp_department',
+        'emp_phone', 'emp_blood_group', 'emp_cfms_id', 'emp_hrms_id',
+        'emp_status', 'emp_emergency_contact', 'emp_ehs_card'
+    );
+    
+    foreach ($meta_fields as $field) {
+        if (isset($_POST[$field])) {
+            update_user_meta($user_id, $field, sanitize_text_field($_POST[$field]));
+        }
+    }
+    
+    // Handle photo update if provided
+    if (!empty($_POST['emp_photo_data'])) {
+        // Get the base64 image data
+        $image_data = $_POST['emp_photo_data'];
+        
+        // Remove data URL prefix if present
+        if (strpos($image_data, ';base64,') !== false) {
+            list(, $image_data) = explode(';base64,', $image_data);
+        }
+        
+        // Decode base64 data
+        $image_data = base64_decode($image_data);
+        
+        if ($image_data === false) {
+            wp_send_json_error('Invalid image data');
+            return;
+        }
+        
+        // Set up the upload directory
+        $upload_dir = wp_upload_dir();
+        
+        // Generate unique filename
+        $filename = 'user_' . $user_id . '_' . time() . '.jpg';
+        $file_path = $upload_dir['path'] . '/' . $filename;
+        $file_url = $upload_dir['url'] . '/' . $filename;
+        
+        // Save the file
+        if (file_put_contents($file_path, $image_data) === false) {
+            wp_send_json_error('Failed to save image file');
+            return;
+        }
+        
+        // Prepare attachment data
+        $attachment = array(
+            'post_mime_type' => 'image/jpeg',
+            'post_title'     => sanitize_file_name($filename),
+            'post_content'   => '',
+            'post_status'    => 'inherit'
+        );
+        
+        // Insert attachment
+        $attach_id = wp_insert_attachment($attachment, $file_path);
+        
+        if (is_wp_error($attach_id)) {
+            wp_send_json_error('Failed to create image attachment');
+            return;
+        }
+        
+        // Include image.php if not already loaded
+        require_once(ABSPATH . 'wp-admin/includes/image.php');
+        
+        // Generate attachment metadata
+        $attach_data = wp_generate_attachment_metadata($attach_id, $file_path);
+        wp_update_attachment_metadata($attach_id, $attach_data);
+        
+        // Update user meta with new image URL
+        update_user_meta($user_id, 'emp_photo', $file_url);
+        update_user_meta($user_id, '_emp_photo_attachment_id', $attach_id);
+        
+        // Update WordPress avatar
+        update_user_meta($user_id, 'wp_smart_badge_avatar', $file_url);
+        
+        // Force refresh of avatar cache
+        clean_user_cache($user_id);
+        
+        // Update local avatar if available
+        if (function_exists('update_local_avatar')) {
+            update_local_avatar($user_id, $attach_id);
+        }
+    }
+    
+    wp_send_json_success(array(
+        'message' => 'User updated successfully',
+        'user_id' => $user_id
+    ));
+}
+
+/**
+ * Get template class name based on template type
+ */
+function wp_smart_badge_get_template_class($template_type) {
+    $template_map = array(
+        'ActiveEmployee' => 'ActiveEmployeeTemplate',
+        'RetiredOfficer' => 'RetiredOfficerTemplate',
+        'RetiredMedical' => 'RetiredMedicalTemplate',
+        'RetiredTravel' => 'RetiredTravelTemplate',
+        'Class3And4' => 'Class3And4Template',
+        'VerticalCard' => 'VerticalCardTemplate'
+    );
+
+    $template_class = isset($template_map[$template_type]) ? $template_map[$template_type] : 'ActiveEmployeeTemplate';
+    return "WpSmartBadge\\Templates\\{$template_class}";
+}
+
+/**
+ * Preview badge
+ */
+function wp_smart_badge_preview_badge() {
+    // Verify nonce and permissions
+    if (!current_user_can('edit_users')) {
+        wp_die('Permission denied');
+    }
+
+    $user_ids = isset($_GET['user_ids']) ? sanitize_text_field($_GET['user_ids']) : '';
+    $template_type = isset($_GET['template_type']) ? sanitize_text_field($_GET['template_type']) : 'ActiveEmployee';
+    $debug = isset($_GET['debug']) ? (bool)$_GET['debug'] : false;
+
+    if (empty($user_ids)) {
+        wp_die('No users selected');
+    }
+
+    // Get template class
+    $template_class = wp_smart_badge_get_template_class($template_type);
+    if (!class_exists($template_class)) {
+        wp_die("Template class not found - {$template_class}");
+    }
+
+    try {
+        // Generate badge
+        $template = new $template_class();
+        $user_ids = explode(',', $user_ids);
+        $pdf = $template->generate($user_ids, $debug);
+
+        // Output PDF
+        header('Content-Type: application/pdf');
+        header('Content-Disposition: inline; filename="badge-preview.pdf"');
+        echo $pdf;
+        exit;
+    } catch (Exception $e) {
+        wp_die('Error generating badge: ' . $e->getMessage());
+    }
+}
+
+/**
+ * Download badge
+ */
+function wp_smart_badge_download_badge() {
+    check_ajax_referer('wp_smart_badge_nonce', 'nonce');
+
+    if (!current_user_can('edit_users')) {
+        wp_send_json_error('Permission denied');
+        return;
+    }
+
+    $user_id = isset($_POST['user_id']) ? intval($_POST['user_id']) : 0;
+    $template_type = isset($_POST['template_type']) ? sanitize_text_field($_POST['template_type']) : 'ActiveEmployee';
+
+    if (!$user_id) {
+        wp_send_json_error('Invalid user ID');
+        return;
+    }
+
+    // Get template class
+    $template_class = wp_smart_badge_get_template_class($template_type);
+    if (!class_exists($template_class)) {
+        wp_send_json_error("Template class not found - {$template_class}");
+        return;
+    }
+
+    try {
+        // Generate badge
+        $template = new $template_class();
+        $pdf = $template->generate(array($user_id));
+
+        // Output PDF
+        header('Content-Type: application/pdf');
+        header('Content-Disposition: attachment; filename="badge-' . $user_id . '.pdf"');
+        echo $pdf;
+        exit;
+    } catch (Exception $e) {
+        wp_send_json_error('Error generating badge: ' . $e->getMessage());
+    }
+}

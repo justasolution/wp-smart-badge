@@ -22,6 +22,13 @@ class ActiveEmployeeTemplate extends BadgeTemplate {
         // Log user data for debugging
         wp_smart_badge_log('Active Employee Template - User data for front', $this->user_data);
 
+        // Get user photo
+        $photo = $this->get_user_meta('emp_photo');
+        if (empty($photo)) {
+            $photo = plugins_url('assets/images/default-avatar.jpg', WP_SMART_BADGE_FILE);
+        }
+
+        // Generate front side HTML
         $html = '<div class="badge-content" style="width: 54mm; height: 85.6mm; padding: 0; background: linear-gradient(to bottom, #ffb499 0%, #fff 20%, #fff 80%, #ffb499 100%); font-family: system-ui, -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, sans-serif; position: relative; display: flex; flex-direction: column;">';
         
         // Header with logo and title
@@ -29,15 +36,14 @@ class ActiveEmployeeTemplate extends BadgeTemplate {
         $html .= '<img src="http://smartidportal.justasolutionaway.com/wp-content/uploads/2025/02/png-transparent-guntur-vijayawada-bus-nellore-andhra-pradesh-state-road-transport-corporation-bus-removebg-preview-e1740051277257.png" alt="Logo" style="height: 8mm; width: auto;">';
         $html .= '<div style="flex: 1;">';
         $html .= '<div style="font-size: 16pt; font-weight: bold; color: #f60; text-align: center;">APSRTC</div>';
-        $html .= '<div style="font-size: 8pt; color: #333; text-align: center;">MEDICAL IDENTITY CARD</div>';
+        $html .= '<div style="font-size: 8pt; color: #333; text-align: center;">IDENTITY CARD</div>';
         $html .= '</div>';
         $html .= '</div>';
         
         // Photo at top
-        $photo_url = !empty($this->user_data['emp_photo']) ? $this->user_data['emp_photo'] : 'http://smartidportal.justasolutionaway.com/wp-content/uploads/2025/02/4a83e065-8883-4c11-bc11-f1ff1d35dbb8-scaled.jpg';
         $html .= '<div style="width: 100%; display: flex; justify-content: center; padding: 0mm;">';
         $html .= '<div style="width: 15mm;height: 15mm;border: 1px solid #ccc;overflow: hidden;border-radius: 2mm;">';
-        $html .= '<img src="http://smartidportal.justasolutionaway.com/wp-content/uploads/2025/02/4a83e065-8883-4c11-bc11-f1ff1d35dbb8-scaled.jpg" alt="Employee Photo" style="width: 100%; height: 100%; object-fit: cover;">';
+        $html .= '<img src="' . $photo . '" alt="Employee Photo" style="width: 100%; height: 100%; object-fit: cover;">';
         $html .= '</div>';
         $html .= '</div>';
         
@@ -87,6 +93,10 @@ class ActiveEmployeeTemplate extends BadgeTemplate {
     
     public function generate_back() {
         $html = '<div class="badge-content" style="width: 54mm; height: 85.6mm; padding: 0; background: linear-gradient(to bottom, #ffb499 0%, #fff 20%, #fff 80%, #ffb499 100%); font-family: system-ui, -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, sans-serif; position: relative; display: flex; flex-direction: column;">';
+        
+        // Log user data for debugging
+        // $user_meta = $this->user_data;
+        // $html .= '<pre>' . esc_html(print_r($user_meta, true)) . '</pre>';
         
         // Title
         $html .= '<div style="width: 100%; text-align: center; font-size: 10pt; font-weight: bold; color: #333; margin-bottom: 2mm; margin-top: 2mm">BENEFITS/CONCESSIONS</div>';

@@ -5,9 +5,7 @@
 
 namespace WpSmartBadge\Templates;
 
-use WpSmartBadge\Badge_Template;
-
-class Class_3_4_Template extends Badge_Template {
+class Class_3_4_Template extends BadgeTemplate {
     protected function set_orientation() {
         $this->orientation = self::ORIENTATION_PORTRAIT;
     }
