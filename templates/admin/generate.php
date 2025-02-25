@@ -37,6 +37,10 @@ wp_localize_script('wp-smart-badge-admin', 'wpSmartBadge', array(
                 <?php wp_nonce_field('export_users_csv', 'export_users_nonce'); ?>
                 <input type="submit" name="export_users" class="button" value="Export Users" />
             </form>
+
+            <button id="refreshGrid" class="button button-secondary" style="margin-left: 10px;">
+                Refresh Grid
+            </button>
         </div>
         
         <div class="search-filter">
@@ -436,28 +440,29 @@ wp_localize_script('wp-smart-badge-admin', 'wpSmartBadge', array(
     <div class="modal-content">
         <div class="modal-header">
             <h2>Add New User</h2>
-            <span class="close">&times;</span>
+            <span class="close" onclick="document.getElementById('addUserModal').style.display='none';">&times;</span>
         </div>
         <form id="addUserForm">
+            <?php wp_nonce_field('add_user_nonce', 'add_user_nonce'); ?>
+            
             <div class="form-row">
                 <label for="emp_id">Employee ID*</label>
                 <input type="text" id="emp_id" name="emp_id" required>
             </div>
-            <div class="form-row">
-                <label for="emp_full_name">Full Name*</label>
-                <input type="text" id="emp_full_name" name="emp_full_name" required>
-            </div>
+            
             <div class="form-row">
                 <label for="user_email">Email*</label>
                 <input type="email" id="user_email" name="user_email" required>
             </div>
+            
             <div class="form-row">
-                <label for="emp_designation">Designation</label>
-                <input type="text" id="emp_designation" name="emp_designation">
+                <label for="first_name">First Name*</label>
+                <input type="text" id="first_name" name="first_name" required>
             </div>
+            
             <div class="form-row">
-                <label for="emp_department">Department</label>
-                <input type="text" id="emp_department" name="emp_department">
+                <label for="last_name">Last Name*</label>
+                <input type="text" id="last_name" name="last_name" required>
             </div>
             <div class="form-row">
                 <label for="emp_phone">Phone</label>
@@ -494,6 +499,45 @@ wp_localize_script('wp-smart-badge-admin', 'wpSmartBadge', array(
                 <input type="text" id="emp_ehs_card" name="emp_ehs_card">
             </div>
             <div class="form-row">
+                <label for="emp_designation">Designation</label>
+                <input type="text" id="emp_designation" name="emp_designation">
+            </div>
+
+            <div class="form-row">
+                <label for="emp_department">Department</label>
+                <input type="text" id="emp_department" name="emp_department">
+            </div>
+
+            <div class="form-row">
+                <label for="emp_barcode">QR/Barcode</label>
+                <input type="text" id="emp_barcode" name="emp_barcode">
+            </div>
+
+            <div class="form-row">
+                <label for="emp_depot_location">Depot Location</label>
+                <input type="text" id="emp_depot_location" name="emp_depot_location">
+            </div>
+
+            <div class="form-row">
+                <label for="emp_last_working">Last Working Place</label>
+                <input type="text" id="emp_last_working" name="emp_last_working">
+            </div>
+
+            <div class="form-row">
+                <label for="emp_residential_address">Residential Address</label>
+                <textarea id="emp_residential_address" name="emp_residential_address" rows="3"></textarea>
+            </div>
+
+            <div class="form-row">
+                <label for="emp_status">Status</label>
+                <select id="emp_status" name="emp_status">
+                    <option value="active">Active</option>
+                    <option value="inactive">Inactive</option>
+                    <option value="retired">Retired</option>
+                </select>
+            </div>
+
+            <div class="form-row">
                 <label for="emp_photo">Profile Picture</label>
                 <div class="photo-upload-container">
                     <div class="preview-container">
@@ -513,6 +557,10 @@ wp_localize_script('wp-smart-badge-admin', 'wpSmartBadge', array(
                     </div>
                 </div>
             </div>
+
+            <!-- MetaBox fields container -->
+            <div id="metabox-fields"></div>
+
             <div class="form-actions">
                 <button type="submit" class="button button-primary">Add User</button>
                 <button type="button" class="button" onclick="document.getElementById('addUserModal').style.display='none';">Cancel</button>
@@ -520,6 +568,119 @@ wp_localize_script('wp-smart-badge-admin', 'wpSmartBadge', array(
         </form>
     </div>
 </div>
+
+<style>
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.4);
+}
+
+.modal-content {
+    background-color: #fefefe;
+    margin: 5% auto;
+    padding: 20px;
+    border: 1px solid #888;
+    width: 80%;
+    max-width: 600px;
+    max-height: 80vh;
+    overflow-y: auto;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.close {
+    color: #aaa;
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.form-row {
+    margin-bottom: 15px;
+}
+
+.form-row label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: 600;
+}
+
+.form-row input,
+.form-row select {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+.photo-upload-container {
+    text-align: center;
+}
+
+.preview-container {
+    position: relative;
+    display: inline-block;
+    margin-bottom: 10px;
+}
+
+.preview-container img {
+    max-width: 150px;
+    height: auto;
+    border-radius: 50%;
+}
+
+.preview-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0,0,0,0.5);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.3s;
+}
+
+.preview-container:hover .preview-overlay {
+    opacity: 1;
+}
+
+.preview-overlay i {
+    color: white;
+    font-size: 24px;
+}
+
+.upload-buttons {
+    margin-top: 10px;
+}
+
+.upload-buttons button {
+    margin: 0 5px;
+}
+
+.form-actions {
+    margin-top: 20px;
+    text-align: right;
+}
+
+.form-actions button {
+    margin-left: 10px;
+}
+</style>
 
 <!-- Camera Modal -->
 <div id="cameraModal" class="modal">

@@ -20,25 +20,29 @@ jQuery(document).ready(function($) {
                 return `<img src="${imageUrl}" alt="Profile" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover;">`;
             }
         },
-        { field: 'emp_id', headerName: 'Employee ID', width: 120 },
-        { field: 'emp_full_name', headerName: 'Full Name', width: 150 },
-        { field: 'emp_cfms_id', headerName: 'CFMS ID', width: 120 },
-        { field: 'emp_hrms_id', headerName: 'HRMS ID', width: 120 },
-        { field: 'emp_designation', headerName: 'Designation', width: 150 },
-        { field: 'emp_department', headerName: 'Department', width: 150 },
-        { field: 'emp_ehs_card', headerName: 'EHS Card', width: 120 },
-        { field: 'emp_phone', headerName: 'Phone', width: 120 },
-        { field: 'emp_blood_group', headerName: 'Blood Group', width: 100 },
-        { field: 'emp_emergency_contact', headerName: 'Emergency Contact', width: 150 },
-        { field: 'emp_status', headerName: 'Status', width: 100 },
+        { field: 'emp_id', headerName: 'Employee ID', filter: 'agTextColumnFilter' },
+        { field: 'emp_full_name', headerName: 'Full Name', filter: 'agTextColumnFilter' },
+        { field: 'emp_designation', headerName: 'Designation', filter: 'agTextColumnFilter' },
+        { field: 'emp_department', headerName: 'Department', filter: 'agTextColumnFilter' },
+        { field: 'emp_phone', headerName: 'Phone', filter: 'agTextColumnFilter' },
+        { field: 'emp_blood_group', headerName: 'Blood Group', filter: 'agTextColumnFilter' },
+        { field: 'emp_cfms_id', headerName: 'CFMS ID', filter: 'agTextColumnFilter' },
+        { field: 'emp_hrms_id', headerName: 'HRMS ID', filter: 'agTextColumnFilter' },
+        { field: 'emp_emergency_contact', headerName: 'Emergency Contact', filter: 'agTextColumnFilter' },
+        { field: 'emp_ehs_card', headerName: 'EHS Card', filter: 'agTextColumnFilter' },
+        { field: 'emp_barcode', headerName: 'QR/Barcode', filter: 'agTextColumnFilter' },
+        { field: 'emp_depot_location', headerName: 'Depot Location', filter: 'agTextColumnFilter' },
+        { field: 'emp_last_working', headerName: 'Last Working Place', filter: 'agTextColumnFilter' },
+        { field: 'emp_residential_address', headerName: 'Residential Address', filter: 'agTextColumnFilter' },
+        { field: 'emp_status', headerName: 'Status', filter: 'agTextColumnFilter' },
         {
             headerName: 'Actions',
             field: 'actions',
             sortable: false,
             filter: false,
-            width: 400,
             pinned: 'right',
             lockPosition: true,
+            width: 200,
             cellRenderer: ActionsCellRenderer
         }
     ];
@@ -78,7 +82,7 @@ jQuery(document).ready(function($) {
 
     // Action Cell Renderer
     function ActionsCellRenderer() {}
-    
+
     ActionsCellRenderer.prototype.init = function(params) {
         this.eGui = document.createElement('div');
         this.eGui.className = 'action-buttons';
@@ -128,7 +132,7 @@ jQuery(document).ready(function($) {
         
         this.eGui.appendChild(container);
     };
-    
+
     ActionsCellRenderer.prototype.getGui = function() {
         return this.eGui;
     };
@@ -136,16 +140,20 @@ jQuery(document).ready(function($) {
     const gridOptions = {
         columnDefs: columnDefs,
         defaultColDef: {
-            sortable: true,
+            flex: 1,
+            minWidth: 150,
             filter: true,
-            resizable: true,
-            floatingFilter: true
+            sortable: true,
+            resizable: true
         },
+        suppressMovableColumns: true,
+        suppressColumnVirtualisation: true,
         rowData: [],
         rowSelection: 'multiple',
         suppressRowClickSelection: true,
         pagination: true,
         paginationPageSize: 10,
+        domLayout: 'normal',
         onSelectionChanged: function() {
             const selectedRows = gridOptions.api.getSelectedRows();
             const bulkButton = document.getElementById('bulk_generate');
@@ -801,7 +809,7 @@ jQuery(document).ready(function($) {
         });
     }
 
-    // Edit User Modal
+    // Show edit user modal
     function showEditUserModal(userData) {
         const modalHtml = `
             <div id="editUserModal" class="modal">
@@ -885,6 +893,38 @@ jQuery(document).ready(function($) {
                         <div class="form-row">
                             <label for="edit_emp_ehs_card">EHS Card</label>
                             <input type="text" id="edit_emp_ehs_card" name="emp_ehs_card" value="${userData.emp_ehs_card || ''}">
+                        </div>
+                        <div class="form-row">
+                            <label for="edit_emp_designation">Designation</label>
+                            <input type="text" id="edit_emp_designation" name="emp_designation" value="${userData.emp_designation || ''}">
+                        </div>
+                        <div class="form-row">
+                            <label for="edit_emp_department">Department</label>
+                            <input type="text" id="edit_emp_department" name="emp_department" value="${userData.emp_department || ''}">
+                        </div>
+                        <div class="form-row">
+                            <label for="edit_emp_qr_code">QR Code</label>
+                            <input type="text" id="edit_emp_qr_code" name="emp_qr_code" value="${userData.emp_qr_code || ''}">
+                        </div>
+                        <div class="form-row">
+                            <label for="edit_emp_depot_location">Depot Location</label>
+                            <input type="text" id="edit_emp_depot_location" name="emp_depot_location" value="${userData.emp_depot_location || ''}">
+                        </div>
+                        <div class="form-row">
+                            <label for="edit_emp_last_working_place">Last Working Place</label>
+                            <input type="text" id="edit_emp_last_working_place" name="emp_last_working_place" value="${userData.emp_last_working || ''}">
+                        </div>
+                        <div class="form-row">
+                            <label for="edit_emp_residential_address">Residential Address</label>
+                            <input type="text" id="edit_emp_residential_address" name="emp_residential_address" value="${userData.emp_residential_address || ''}">
+                        </div>
+                        <div class="form-row">
+                            <label for="edit_emp_status">Status</label>
+                            <select id="edit_emp_status" name="emp_status">
+                                <option value="">Select Status</option>
+                                <option value="Active" ${userData.emp_status === 'Active' ? 'selected' : ''}>Active</option>
+                                <option value="Inactive" ${userData.emp_status === 'Inactive' ? 'selected' : ''}>Inactive</option>
+                            </select>
                         </div>
                         <div class="form-actions">
                             <button type="submit" class="button button-primary">Save Changes</button>

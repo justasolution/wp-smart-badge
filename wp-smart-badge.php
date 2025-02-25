@@ -365,52 +365,73 @@ add_action('wp_ajax_get_users_data', 'wp_smart_badge_get_users_data');
 function wp_smart_badge_get_users_data() {
     check_ajax_referer('wp_smart_badge_nonce', 'nonce');
     
-    // Get all WordPress users
-    $users_query = new WP_User_Query([
-        'number' => -1,
-        'orderby' => 'ID',
-        'order' => 'ASC'
-    ]);
+    $users = get_users(array(
+        'fields' => array('ID', 'user_email', 'display_name'),
+        'orderby' => 'display_name'
+    ));
     
-    $users = $users_query->get_results();
-    $formatted_users = array();
-    
-    if (!empty($users)) {
-        foreach ($users as $user) {
-            // Get all user meta at once
-            $user_meta = get_user_meta($user->ID);
-            
-            // Get user data
-            $user_data = get_userdata($user->ID);
-            
-            // Helper function to get meta value
-            $get_meta_value = function($key) use ($user_meta) {
-                return isset($user_meta[$key]) && !empty($user_meta[$key][0]) ? $user_meta[$key][0] : '';
-            };
-            
-            // Get all relevant user data
-            $formatted_users[] = array(
-                'ID' => $user->ID,
-                'user_email' => $user->user_email,
-                'display_name' => $user->display_name,
-                'emp_id' => $get_meta_value('emp_id'),
-                'emp_full_name' => $get_meta_value('emp_full_name'),
-                'emp_cfms_id' => $get_meta_value('emp_cfms_id'),
-                'emp_hrms_id' => $get_meta_value('emp_hrms_id'),
-                'emp_designation' => $get_meta_value('emp_designation'),
-                'emp_department' => $get_meta_value('emp_department'),
-                'emp_phone' => $get_meta_value('emp_phone'),
-                'emp_blood_group' => $get_meta_value('emp_blood_group'),
-                'emp_ehs_card' => $get_meta_value('emp_ehs_card'),
-                'emp_emergency_contact' => $get_meta_value('emp_emergency_contact'),
-                'emp_status' => $get_meta_value('emp_status'),
-                'emp_barcode' => $get_meta_value('emp_barcode'),
-                'emp_photo' => $get_meta_value('emp_photo')
-            );
+    $users_data = array();
+    foreach ($users as $user) {
+        // Get photo URL from attachment
+        $photo_id = get_user_meta($user->ID, '_emp_photo_attachment_id', true);
+        $photo_url = '';
+        
+        if ($photo_id) {
+            $photo_url = wp_get_attachment_url($photo_id);
+            // Verify if attachment still exists
+            if (!$photo_url || !file_exists(get_attached_file($photo_id))) {
+                $photo_url = '';
+                delete_user_meta($user->ID, '_emp_photo_attachment_id');
+            }
         }
+        
+        // Try getting from emp_photo meta if no attachment
+        if (!$photo_url) {
+            $photo_url = get_user_meta($user->ID, 'emp_photo', true);
+            // Verify if it's a valid URL or base64
+            if ($photo_url && !filter_var($photo_url, FILTER_VALIDATE_URL) && strpos($photo_url, 'data:image') !== 0) {
+                $photo_url = '';
+            }
+        }
+        
+        // Use default avatar if no valid photo found
+        if (!$photo_url) {
+            $photo_url = plugins_url('assets/images/default-avatar.jpg', WP_SMART_BADGE_FILE);
+        }
+
+        $blood_group = get_user_meta($user->ID, 'emp_blood_group', true);
+        if (empty($blood_group)) {
+            $blood_group = get_user_meta($user->ID, 'blood_group', true); // Check old meta key
+        }
+        
+        $user_data = array(
+            'ID' => $user->ID,
+            'user_email' => $user->user_email,
+            'display_name' => $user->display_name,
+            'first_name' => get_user_meta($user->ID, 'first_name', true),
+            'last_name' => get_user_meta($user->ID, 'last_name', true),
+            'emp_id' => get_user_meta($user->ID, 'emp_id', true),
+            'emp_full_name' => get_user_meta($user->ID, 'emp_full_name', true),
+            'emp_designation' => get_user_meta($user->ID, 'emp_designation', true),
+            'emp_department' => get_user_meta($user->ID, 'emp_department', true),
+            'emp_phone' => get_user_meta($user->ID, 'emp_phone', true),
+            'emp_blood_group' => $blood_group,
+            'emp_cfms_id' => get_user_meta($user->ID, 'emp_cfms_id', true),
+            'emp_hrms_id' => get_user_meta($user->ID, 'emp_hrms_id', true),
+            'emp_emergency_contact' => get_user_meta($user->ID, 'emp_emergency_contact', true),
+            'emp_ehs_card' => get_user_meta($user->ID, 'emp_ehs_card', true),
+            'emp_barcode' => get_user_meta($user->ID, 'emp_barcode', true),
+            'emp_depot_location' => get_user_meta($user->ID, 'emp_depot_location', true),
+            'emp_last_working' => get_user_meta($user->ID, 'emp_last_working', true),
+            'emp_residential_address' => get_user_meta($user->ID, 'emp_residential_address', true),
+            'emp_status' => get_user_meta($user->ID, 'emp_status', true),
+            'emp_photo' => $photo_url,
+            '_emp_photo_attachment_id' => $photo_id
+        );
+        $users_data[] = $user_data;
     }
     
-    wp_send_json_success($formatted_users);
+    wp_send_json_success($users_data);
 }
 
 // AJAX endpoint for badge generation
@@ -1742,7 +1763,9 @@ function wp_smart_badge_add_new_user() {
     $meta_fields = array(
         'emp_id', 'emp_full_name', 'emp_designation', 'emp_department',
         'emp_phone', 'emp_blood_group', 'emp_cfms_id', 'emp_hrms_id',
-        'emp_status', 'emp_emergency_contact', 'emp_ehs_card'
+        'emp_status', 'emp_emergency_contact', 'emp_ehs_card',
+        'emp_barcode', 'emp_depot_location', 'emp_last_working',
+        'emp_residential_address', 'employee_info'
     );
     
     foreach ($meta_fields as $field) {
@@ -1792,7 +1815,7 @@ function wp_smart_badge_add_new_user() {
             
             // Set as user's avatar in WordPress
             update_user_meta($user_id, 'wp_smart_badge_avatar', $file_url);
-            
+
             // Force refresh of avatar cache
             clean_user_cache($user_id);
             
@@ -1809,32 +1832,38 @@ function wp_smart_badge_add_new_user() {
     ));
 }
 
-// Hook into WordPress avatar system
-add_filter('get_avatar_url', 'wp_smart_badge_get_avatar_url', 10, 3);
-function wp_smart_badge_get_avatar_url($url, $id_or_email, $args) {
-    // Get user ID from email if necessary
-    $user_id = 0;
-    if (is_numeric($id_or_email)) {
-        $user_id = $id_or_email;
-    } elseif (is_string($id_or_email)) {
-        $user = get_user_by('email', $id_or_email);
-        if ($user) {
-            $user_id = $user->ID;
-        }
-    } elseif (is_object($id_or_email)) {
-        if (!empty($id_or_email->user_id)) {
-            $user_id = $id_or_email->user_id;
-        }
-    }
+// Hook into user profile update and creation
+add_action('user_register', 'wp_smart_badge_update_full_name');
+add_action('profile_update', 'wp_smart_badge_update_full_name');
+
+function wp_smart_badge_update_full_name($user_id) {
+    // Get first and last name
+    $first_name = get_user_meta($user_id, 'first_name', true);
+    $last_name = get_user_meta($user_id, 'last_name', true);
     
-    if ($user_id) {
-        $custom_avatar = get_user_meta($user_id, 'emp_photo', true);
-        if ($custom_avatar) {
-            return $custom_avatar;
-        }
-    }
+    // Combine into full name
+    $full_name = trim($first_name . ' ' . $last_name);
     
-    return $url;
+    // Update emp_full_name
+    if (!empty($full_name)) {
+        update_user_meta($user_id, 'emp_full_name', $full_name);
+    }
+}
+
+// Add filter for user meta fields
+add_filter('user_contactmethods', 'wp_smart_badge_add_user_fields');
+
+function wp_smart_badge_add_user_fields($user_contact) {
+    // Add custom fields
+    $user_contact['emp_id'] = 'Employee ID';
+    $user_contact['emp_designation'] = 'Designation';
+    $user_contact['emp_department'] = 'Department';
+    $user_contact['emp_phone'] = 'Phone';
+    $user_contact['emp_blood_group'] = 'Blood Group';
+    $user_contact['emp_emergency_contact'] = 'Emergency Contact';
+    $user_contact['emp_status'] = 'Status';
+    
+    return $user_contact;
 }
 
 // AJAX endpoint for updating user photos
@@ -1856,183 +1885,103 @@ function wp_smart_badge_update_user_photo() {
     
     // Handle base64 image data
     if (isset($_POST['photo_data']) && !empty($_POST['photo_data'])) {
-        $upload_dir = wp_upload_dir();
-        $upload_path = $upload_dir['path'];
-        $upload_url = $upload_dir['url'];
-        
-        // Decode base64 data
-        $image_parts = explode(";base64,", $_POST['photo_data']);
-        $image_base64 = base64_decode($image_parts[1]);
-        
-        // Generate unique filename
-        $filename = 'user_' . $user_id . '_' . time() . '.jpg';
-        $file_path = $upload_path . '/' . $filename;
-        $file_url = $upload_url . '/' . $filename;
-        
-        // Save the file
-        file_put_contents($file_path, $image_base64);
-        
-        // Create attachment
-        $attachment_data = array(
-            'post_mime_type' => 'image/jpeg',
-            'post_title'     => sanitize_file_name($filename),
-            'post_content'   => '',
-            'post_status'    => 'inherit'
-        );
-        
-        $attach_id = wp_insert_attachment($attachment_data, $file_path);
-        
-        if (!is_wp_error($attach_id)) {
-            require_once(ABSPATH . 'wp-admin/includes/image.php');
-            
-            // Generate metadata and thumbnails
-            $attach_data = wp_generate_attachment_metadata($attach_id, $file_path);
-            wp_update_attachment_metadata($attach_id, $attach_data);
-            
-            // Update user meta and avatar
-            update_user_meta($user_id, 'emp_photo', $file_url);
-            update_user_meta($user_id, '_emp_photo_attachment_id', $attach_id);
-            update_user_meta($user_id, 'wp_smart_badge_avatar', $file_url);
-            
-            // Force refresh of avatar cache
-            clean_user_cache($user_id);
-            
-            // Update user's local avatar if the plugin is active
-            if (function_exists('update_local_avatar')) {
-                update_local_avatar($user_id, $attach_id);
-            }
-            
-            wp_send_json_success(array(
-                'message' => 'Profile picture updated successfully',
-                'url' => $file_url
-            ));
-            return;
+        $photo_data = $_POST['photo_data'];
+        if (strpos($photo_data, 'data:image') === 0) {
+            update_user_meta($user_id, 'emp_photo', $photo_data);
         }
     }
-    
-    wp_send_json_error('Failed to update profile picture');
+
+    // Get updated user data
+    $updated_user = get_user_data($user_id);
+    if (!$updated_user) {
+        wp_send_json_error('Failed to get updated user data');
+        return;
+    }
+
+    wp_send_json_success($updated_user);
 }
 
 // AJAX endpoint for updating user
-add_action('wp_ajax_update_user', 'wp_smart_badge_update_user');
-function wp_smart_badge_update_user() {
+add_action('wp_ajax_update_user', function() {
     check_ajax_referer('wp_smart_badge_nonce', 'nonce');
     
-    if (!current_user_can('edit_users')) {
-        wp_send_json_error('Permission denied');
-        return;
-    }
-    
-    $user_id = intval($_POST['user_id']);
-    
+    $user_id = isset($_POST['user_id']) ? intval($_POST['user_id']) : 0;
     if (!$user_id) {
         wp_send_json_error('Invalid user ID');
         return;
     }
-    
-    // Update user data
-    $user_data = array(
-        'ID'            => $user_id,
-        'user_email'    => sanitize_email($_POST['user_email']),
-        'display_name'  => sanitize_text_field($_POST['emp_full_name'])
-    );
-    
-    $user_id = wp_update_user($user_data);
-    
-    if (is_wp_error($user_id)) {
-        wp_send_json_error($user_id->get_error_message());
-        return;
-    }
-    
-    // Update user meta
+
+    // Update user meta fields
     $meta_fields = array(
-        'emp_id', 'emp_full_name', 'emp_designation', 'emp_department',
-        'emp_phone', 'emp_blood_group', 'emp_cfms_id', 'emp_hrms_id',
-        'emp_status', 'emp_emergency_contact', 'emp_ehs_card'
+        'emp_id',
+        'first_name',
+        'last_name',
+        'emp_full_name',
+        'emp_designation',
+        'emp_department',
+        'emp_phone',
+        'emp_blood_group',
+        'emp_cfms_id',
+        'emp_hrms_id',
+        'emp_emergency_contact',
+        'emp_ehs_card',
+        'emp_barcode',
+        'emp_depot_location',
+        'emp_last_working',
+        'emp_residential_address',
+        'emp_status'
     );
-    
+
     foreach ($meta_fields as $field) {
         if (isset($_POST[$field])) {
             update_user_meta($user_id, $field, sanitize_text_field($_POST[$field]));
         }
     }
-    
-    // Handle photo update if provided
-    if (!empty($_POST['emp_photo_data'])) {
-        // Get the base64 image data
-        $image_data = $_POST['emp_photo_data'];
-        
-        // Remove data URL prefix if present
-        if (strpos($image_data, ';base64,') !== false) {
-            list(, $image_data) = explode(';base64,', $image_data);
-        }
-        
-        // Decode base64 data
-        $image_data = base64_decode($image_data);
-        
-        if ($image_data === false) {
-            wp_send_json_error('Invalid image data');
-            return;
-        }
-        
-        // Set up the upload directory
-        $upload_dir = wp_upload_dir();
-        
-        // Generate unique filename
-        $filename = 'user_' . $user_id . '_' . time() . '.jpg';
-        $file_path = $upload_dir['path'] . '/' . $filename;
-        $file_url = $upload_dir['url'] . '/' . $filename;
-        
-        // Save the file
-        if (file_put_contents($file_path, $image_data) === false) {
-            wp_send_json_error('Failed to save image file');
-            return;
-        }
-        
-        // Prepare attachment data
-        $attachment = array(
-            'post_mime_type' => 'image/jpeg',
-            'post_title'     => sanitize_file_name($filename),
-            'post_content'   => '',
-            'post_status'    => 'inherit'
-        );
-        
-        // Insert attachment
-        $attach_id = wp_insert_attachment($attachment, $file_path);
-        
-        if (is_wp_error($attach_id)) {
-            wp_send_json_error('Failed to create image attachment');
-            return;
-        }
-        
-        // Include image.php if not already loaded
-        require_once(ABSPATH . 'wp-admin/includes/image.php');
-        
-        // Generate attachment metadata
-        $attach_data = wp_generate_attachment_metadata($attach_id, $file_path);
-        wp_update_attachment_metadata($attach_id, $attach_data);
-        
-        // Update user meta with new image URL
-        update_user_meta($user_id, 'emp_photo', $file_url);
-        update_user_meta($user_id, '_emp_photo_attachment_id', $attach_id);
-        
-        // Update WordPress avatar
-        update_user_meta($user_id, 'wp_smart_badge_avatar', $file_url);
-        
-        // Force refresh of avatar cache
-        clean_user_cache($user_id);
-        
-        // Update local avatar if available
-        if (function_exists('update_local_avatar')) {
-            update_local_avatar($user_id, $attach_id);
+
+    // Handle photo upload
+    if (isset($_POST['emp_photo_data']) && !empty($_POST['emp_photo_data'])) {
+        $photo_data = $_POST['emp_photo_data'];
+        if (strpos($photo_data, 'data:image') === 0) {
+            // Get the base64 data
+            list(, $base64_data) = explode(';base64,', $photo_data);
+            $decoded_data = base64_decode($base64_data);
+            
+            // Create file in uploads directory
+            $upload_dir = wp_upload_dir();
+            $filename = 'user_' . $user_id . '_' . time() . '.jpg';
+            $file_path = $upload_dir['path'] . '/' . $filename;
+            
+            file_put_contents($file_path, $decoded_data);
+            
+            // Create attachment
+            $attachment = array(
+                'post_mime_type' => 'image/jpeg',
+                'post_title' => sanitize_file_name($filename),
+                'post_content' => '',
+                'post_status' => 'inherit'
+            );
+            
+            $attach_id = wp_insert_attachment($attachment, $file_path);
+            
+            require_once(ABSPATH . 'wp-admin/includes/image.php');
+            $attach_data = wp_generate_attachment_metadata($attach_id, $file_path);
+            wp_update_attachment_metadata($attach_id, $attach_data);
+            
+            // Update user meta
+            update_user_meta($user_id, '_emp_photo_attachment_id', $attach_id);
+            update_user_meta($user_id, 'emp_photo', wp_get_attachment_url($attach_id));
         }
     }
-    
-    wp_send_json_success(array(
-        'message' => 'User updated successfully',
-        'user_id' => $user_id
-    ));
-}
+
+    // Get updated user data
+    $updated_user = get_user_data($user_id);
+    if (!$updated_user) {
+        wp_send_json_error('Failed to get updated user data');
+        return;
+    }
+
+    wp_send_json_success($updated_user);
+});
 
 /**
  * Get template class name based on template type
@@ -2129,4 +2078,98 @@ function wp_smart_badge_download_badge() {
     } catch (Exception $e) {
         wp_send_json_error('Error generating badge: ' . $e->getMessage());
     }
+}
+
+/**
+ * Hook into WordPress avatar system
+ */
+add_filter('get_avatar_url', 'wp_smart_badge_get_avatar_url', 10, 3);
+function wp_smart_badge_get_avatar_url($url, $id_or_email, $args) {
+    // Get user ID from email if necessary
+    $user_id = 0;
+    if (is_numeric($id_or_email)) {
+        $user_id = $id_or_email;
+    } elseif (is_string($id_or_email)) {
+        $user = get_user_by('email', $id_or_email);
+        if ($user) {
+            $user_id = $user->ID;
+        }
+    } elseif (is_object($id_or_email)) {
+        if (!empty($id_or_email->user_id)) {
+            $user_id = $id_or_email->user_id;
+        }
+    }
+    
+    if ($user_id) {
+        $custom_avatar = get_user_meta($user_id, 'emp_photo', true);
+        if ($custom_avatar) {
+            return $custom_avatar;
+        }
+    }
+    
+    return $url;
+}
+
+// Function to get MetaBox fields
+function wp_smart_badge_get_meta_box_fields() {
+    if (!function_exists('rwmb_get_registry')) {
+        return array();
+    }
+
+    $registry = rwmb_get_registry('field');
+    $meta_boxes = $registry->all();
+    $fields = array();
+
+    foreach ($meta_boxes as $meta_box) {
+        if (isset($meta_box->meta_box['fields'])) {
+            foreach ($meta_box->meta_box['fields'] as $field) {
+                $fields[] = array(
+                    'id' => $field['id'],
+                    'type' => $field['type'],
+                    'name' => $field['name'],
+                    'required' => !empty($field['required']),
+                    'options' => isset($field['options']) ? $field['options'] : array()
+                );
+            }
+        }
+    }
+
+    return $fields;
+}
+
+// AJAX endpoint to get MetaBox fields
+add_action('wp_ajax_get_meta_box_fields', 'wp_smart_badge_ajax_get_meta_box_fields');
+function wp_smart_badge_ajax_get_meta_box_fields() {
+    check_ajax_referer('wp_smart_badge_nonce', 'nonce');
+    wp_send_json_success(wp_smart_badge_get_meta_box_fields());
+}
+
+function get_user_data($user_id) {
+    $user = get_user_by('id', $user_id);
+    if (!$user) {
+        return false;
+    }
+
+    return array(
+        'ID' => $user->ID,
+        'user_email' => $user->user_email,
+        'first_name' => get_user_meta($user_id, 'first_name', true),
+        'last_name' => get_user_meta($user_id, 'last_name', true),
+        'emp_id' => get_user_meta($user_id, 'emp_id', true),
+        'emp_full_name' => get_user_meta($user_id, 'emp_full_name', true),
+        'emp_designation' => get_user_meta($user_id, 'emp_designation', true),
+        'emp_department' => get_user_meta($user_id, 'emp_department', true),
+        'emp_phone' => get_user_meta($user_id, 'emp_phone', true),
+        'emp_blood_group' => get_user_meta($user_id, 'emp_blood_group', true),
+        'emp_cfms_id' => get_user_meta($user_id, 'emp_cfms_id', true),
+        'emp_hrms_id' => get_user_meta($user_id, 'emp_hrms_id', true),
+        'emp_emergency_contact' => get_user_meta($user_id, 'emp_emergency_contact', true),
+        'emp_ehs_card' => get_user_meta($user_id, 'emp_ehs_card', true),
+        'emp_barcode' => get_user_meta($user_id, 'emp_barcode', true),
+        'emp_depot_location' => get_user_meta($user_id, 'emp_depot_location', true),
+        'emp_last_working' => get_user_meta($user_id, 'emp_last_working', true),
+        'emp_residential_address' => get_user_meta($user_id, 'emp_residential_address', true),
+        'emp_status' => get_user_meta($user_id, 'emp_status', true),
+        'emp_photo' => get_user_meta($user_id, 'emp_photo', true)
+    );
 }

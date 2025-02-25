@@ -18,6 +18,28 @@ class ActiveEmployeeTemplate extends BadgeTemplate {
         return self::TYPE_CLASS_1;
     }
     
+    public function get_employee_data($user_id) {
+        $data = array(
+            'emp_id'                => get_user_meta($user_id, 'emp_id', true),
+            'emp_full_name'         => get_user_meta($user_id, 'emp_full_name', true),
+            'emp_designation'       => get_user_meta($user_id, 'emp_designation', true),
+            'emp_department'        => get_user_meta($user_id, 'emp_department', true),
+            'emp_phone'            => get_user_meta($user_id, 'emp_phone', true),
+            'emp_blood_group'      => get_user_meta($user_id, 'emp_blood_group', true),
+            'emp_cfms_id'          => get_user_meta($user_id, 'emp_cfms_id', true),
+            'emp_hrms_id'          => get_user_meta($user_id, 'emp_hrms_id', true),
+            'emp_emergency_contact' => get_user_meta($user_id, 'emp_emergency_contact', true),
+            'emp_ehs_card'         => get_user_meta($user_id, 'emp_ehs_card', true),
+            'emp_barcode'          => get_user_meta($user_id, 'emp_barcode', true),
+            'emp_depot_location'   => get_user_meta($user_id, 'emp_depot_location', true),
+            'emp_last_working'     => get_user_meta($user_id, 'emp_last_working', true),
+            'emp_residential_address' => get_user_meta($user_id, 'emp_residential_address', true),
+            'emp_status'           => get_user_meta($user_id, 'emp_status', true),
+            'emp_photo'            => get_user_meta($user_id, 'emp_photo', true)
+        );
+        return $data;
+    }
+    
     public function generate_front() {
         // Log user data for debugging
         wp_smart_badge_log('Active Employee Template - User data for front', $this->user_data);
@@ -75,6 +97,9 @@ class ActiveEmployeeTemplate extends BadgeTemplate {
         $html .= $add_info_row('EHS Card', $this->user_data['emp_ehs_card']);
         $html .= $add_info_row('Emergency', $this->user_data['emp_emergency_contact']);
         $html .= $add_info_row('Barcode', $this->user_data['emp_barcode']);
+        $html .= $add_info_row('Depot Location', $this->user_data['emp_depot_location']);
+        $html .= $add_info_row('Last Working Place', $this->user_data['emp_last_working']);
+        $html .= $add_info_row('Residential Address', $this->user_data['emp_residential_address']);
 
         $html .= '</div>'; // End staff info
 
