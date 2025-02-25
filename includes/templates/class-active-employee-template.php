@@ -37,12 +37,24 @@ class ActiveEmployeeTemplate extends BadgeTemplate {
             'emp_status'           => get_user_meta($user_id, 'emp_status', true),
             'emp_photo'            => get_user_meta($user_id, 'emp_photo', true)
         );
+
+        // Log the fetched user meta data
+        // if ($user_id == 505) {
+        //     wp_smart_badge_log('Fetched User Meta Data for User ID ' . $user_id, $data);
+        // }
+
         return $data;
     }
     
     public function generate_front() {
+        // Log entire user data for debugging
+        wp_smart_badge_log('Active Employee Template - Complete User Data', $this->user_data);
+
         // Log user data for debugging
         wp_smart_badge_log('Active Employee Template - User data for front', $this->user_data);
+
+        // Log entire user data for debugging
+        wp_smart_badge_log('Active Employee Template - Complete User Data', $this->user_data);
 
         // Get user photo
         $photo = $this->get_user_meta('emp_photo');
@@ -52,7 +64,10 @@ class ActiveEmployeeTemplate extends BadgeTemplate {
 
         // Generate front side HTML
         $html = '<div class="badge-content" style="width: 54mm; height: 85.6mm; padding: 0; background: linear-gradient(to bottom, #ffb499 0%, #fff 20%, #fff 80%, #ffb499 100%); font-family: system-ui, -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, sans-serif; position: relative; display: flex; flex-direction: column;">';
-        
+
+        // Log user data in HTML
+        //$html .= '<pre>' . esc_html(print_r($this->user_data, true)) . '</pre>';
+
         // Header with logo and title
         $html .= '<div style="padding: 2mm; display: flex; align-items: center; gap: 2mm; justify-content: center;">';
         $html .= '<img src="http://smartidportal.justasolutionaway.com/wp-content/uploads/2025/02/png-transparent-guntur-vijayawada-bus-nellore-andhra-pradesh-state-road-transport-corporation-bus-removebg-preview-e1740051277257.png" alt="Logo" style="height: 8mm; width: auto;">';
@@ -87,19 +102,33 @@ class ActiveEmployeeTemplate extends BadgeTemplate {
         };
 
         // Add all fields
-        $html .= $add_info_row('Name', $this->user_data['emp_full_name'], true);
-        $html .= $add_info_row('Staff No', $this->user_data['emp_id'], true);
-        $html .= $add_info_row('CFMS ID', $this->user_data['emp_cfms_id']);
-        $html .= $add_info_row('HRMS ID', $this->user_data['emp_hrms_id']);
-        $html .= $add_info_row('Designation', $this->user_data['emp_designation']);
-        $html .= $add_info_row('Contact No', $this->user_data['emp_phone']);
-        $html .= $add_info_row('Blood Group', $this->user_data['emp_blood_group']);
-        $html .= $add_info_row('EHS Card', $this->user_data['emp_ehs_card']);
-        $html .= $add_info_row('Emergency', $this->user_data['emp_emergency_contact']);
-        $html .= $add_info_row('Barcode', $this->user_data['emp_barcode']);
-        $html .= $add_info_row('Depot Location', $this->user_data['emp_depot_location']);
-        $html .= $add_info_row('Last Working Place', $this->user_data['emp_last_working']);
-        $html .= $add_info_row('Residential Address', $this->user_data['emp_residential_address']);
+        $fields = [
+            'Name' => 'emp_full_name',
+            'Staff No' => 'emp_id',
+            'CFMS ID' => 'emp_cfms_id',
+            'HRMS ID' => 'emp_hrms_id',
+            'Designation' => 'emp_designation',
+            'Contact No' => 'emp_phone',
+            'Blood Group' => 'emp_blood_group',
+            'EHS Card' => 'emp_ehs_card',
+            'Emergency' => 'emp_emergency_contact',
+            'Barcode' => 'emp_barcode',
+            'Depot Location' => 'emp_depot_location',
+            'Last Working Place' => 'emp_last_working',
+            'Residential Address' => 'emp_residential_address',
+        ];
+
+        foreach ($fields as $label => $field) {
+            $value = $this->user_data[$field] ?? 'N/A';
+            if ($label === 'Name' || $label === 'Staff No') {
+                $html .= $add_info_row($label, $value, true);
+            } else {
+                $html .= $add_info_row($label, $value);
+            }
+            if ($value === 'N/A') {
+                wp_smart_badge_log('Missing user meta data', ['field' => $field, 'label' => $label]);
+            }
+        }
 
         $html .= '</div>'; // End staff info
 

@@ -21,10 +21,14 @@ class Badge_Generator {
     private $template;
     private $mpdf;
     
-    public function __construct($user_id = null) {
+    public function __construct($user_id = null, $provided_data = null) {
         if ($user_id) {
             $this->user_id = $user_id;
-            $this->load_user_data();
+            if ($provided_data) {
+                $this->user_data = $provided_data;
+            } else {
+                $this->load_user_data();
+            }
             $this->init_template();
         }
         

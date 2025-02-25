@@ -3,9 +3,15 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-$user_ids = isset($_GET['user_ids']) ? array_map('intval', explode(',', $_GET['user_ids'])) : array();
+$user_ids = isset($_REQUEST['user_ids']) ? array_map('intval', explode(',', $_REQUEST['user_ids'])) : array();
 if (empty($user_ids)) {
     wp_die('No users selected');
+}
+
+// Get the posted user data if available
+$user_data = null;
+if (isset($_POST['user_data'])) {
+    $user_data = json_decode(stripslashes($_POST['user_data']), true);
 }
 
 require_once WP_SMART_BADGE_PATH . 'includes/class-badge-generator.php';
@@ -84,7 +90,7 @@ require_once WP_SMART_BADGE_PATH . 'includes/class-badge-generator.php';
         <?php
         foreach ($user_ids as $user_id) {
             try {
-                $generator = new WP_Badge_Generator($user_id);
+                $generator = new WP_Badge_Generator($user_id, $user_data);
                 echo $generator->generate_html();
             } catch (Exception $e) {
                 echo '<div class="error">Error generating badge for user ' . esc_html($user_id) . ': ' . esc_html($e->getMessage()) . '</div>';

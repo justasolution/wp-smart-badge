@@ -156,9 +156,14 @@ jQuery(document).ready(function($) {
         domLayout: 'normal',
         onSelectionChanged: function() {
             const selectedRows = gridOptions.api.getSelectedRows();
-            const bulkButton = document.getElementById('bulk_generate');
-            if (bulkButton) {
-                bulkButton.disabled = selectedRows.length === 0;
+            const selectedIds = selectedRows.map(row => row.ID);
+            document.getElementById('selectedUsersForExport').value = JSON.stringify(selectedIds);
+            document.getElementById('exportSelectedUsers').disabled = selectedIds.length === 0;
+            
+            // Update bulk actions button state
+            const bulkActionsBtn = document.getElementById('bulkActionsBtn');
+            if (bulkActionsBtn) {
+                bulkActionsBtn.disabled = selectedIds.length === 0;
             }
         },
         onGridReady: function(params) {
@@ -574,11 +579,11 @@ jQuery(document).ready(function($) {
                     // Show success message
                     alert('User added successfully!');
                 } else {
-                    alert('Error: ' + response.data);
+                    alert('Error: ' + (response.data || 'Unknown error occurred'));
                 }
             },
-            error: function() {
-                alert('Error adding user. Please try again.');
+            error: function(xhr, status, error) {
+                alert('Error adding user: ' + error);
             },
             complete: function() {
                 submitButton.prop('disabled', false).text(originalText);

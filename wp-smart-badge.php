@@ -471,7 +471,14 @@ function wp_smart_badge_generate_badge() {
             'emp_status' => get_user_meta($user->ID, 'emp_status', true) ?: 'active',
             'user_email' => $user->user_email,
             'display_name' => $user->display_name,
-            'user_registered' => $user->user_registered
+            'user_registered' => $user->user_registered,
+            'emp_ehs_card' => get_user_meta($user->ID, 'emp_ehs_card', true) ?: '',
+            'emp_emergency_contact' => get_user_meta($user->ID, 'emp_emergency_contact', true) ?: '',
+            'emp_barcode' => get_user_meta($user->ID, 'emp_barcode', true) ?: '',
+            'emp_depot_location' => get_user_meta($user->ID, 'emp_depot_location', true) ?: '',
+            'emp_last_working' => get_user_meta($user->ID, 'emp_last_working', true) ?: '',
+            'emp_residential_address' => get_user_meta($user->ID, 'emp_residential_address', true) ?: '',
+            'emp_photo' => get_user_meta($user->ID, 'emp_photo', true) ?: ''
         );
         
         wp_smart_badge_log('Processed user data', $user_data);
@@ -705,7 +712,14 @@ function wp_smart_badge_handle_preview() {
             'emp_status' => get_user_meta($user->ID, 'emp_status', true) ?: 'active',
             'user_email' => $user->user_email,
             'display_name' => $user->display_name,
-            'user_registered' => $user->user_registered
+            'user_registered' => $user->user_registered,
+            'emp_ehs_card' => get_user_meta($user->ID, 'emp_ehs_card', true) ?: '',
+            'emp_emergency_contact' => get_user_meta($user->ID, 'emp_emergency_contact', true) ?: '',
+            'emp_barcode' => get_user_meta($user->ID, 'emp_barcode', true) ?: '',
+            'emp_depot_location' => get_user_meta($user->ID, 'emp_depot_location', true) ?: '',
+            'emp_last_working' => get_user_meta($user->ID, 'emp_last_working', true) ?: '',
+            'emp_residential_address' => get_user_meta($user->ID, 'emp_residential_address', true) ?: '',
+            'emp_photo' => get_user_meta($user->ID, 'emp_photo', true) ?: ''
         );
         
         wp_smart_badge_log('User data:', $user_data);
@@ -1055,7 +1069,10 @@ function wp_smart_badge_preview_handler() {
                         'emp_blood_group' => $get_meta_value('emp_blood_group'),
                         'emp_emergency_contact' => $get_meta_value('emp_emergency_contact'),
                         'emp_status' => $get_meta_value('emp_status'),
-                        'emp_barcode' => $get_meta_value('emp_barcode')
+                        'emp_barcode' => $get_meta_value('emp_barcode'),
+                        'emp_depot_location' => $get_meta_value('emp_depot_location'),
+                        'emp_last_working' => $get_meta_value('emp_last_working'),
+                        'emp_photo' => $get_meta_value('emp_photo')
                     );
 
                     // Log the formatted user data
@@ -2173,3 +2190,290 @@ function get_user_data($user_id) {
         'emp_photo' => get_user_meta($user_id, 'emp_photo', true)
     );
 }
+
+// Handle CSV Export
+// function wp_smart_badge_export_users() {
+//     if (!current_user_can('manage_options')) {
+//         return;
+//     }
+
+//     if (!isset($_POST['export_users_nonce']) || !wp_verify_nonce($_POST['export_users_nonce'], 'export_users_csv')) {
+//         return;
+//     }
+
+//     $selected_users = isset($_POST['selected_users']) ? json_decode(stripslashes($_POST['selected_users']), true) : array();
+    
+//     $meta_fields = array(
+//         'emp_designation', 'emp_department', 'emp_phone', 'emp_blood_group', 
+//         'emp_cfms_id', 'emp_hrms_id', 'emp_status', 'emp_emergency_contact', 
+//         'emp_ehs_card', 'emp_barcode', 'emp_depot_location', 'emp_last_working',
+//         'emp_residential_address', 'employee_info'
+//     );
+
+//     // Get users based on selection
+//     if (!empty($selected_users)) {
+//         $users = get_users(array('include' => $selected_users));
+//     } else {
+//         $users = get_users();
+//     }
+
+//     $filename = 'smart_badge_users_' . date('Y-m-d') . '.csv';
+    
+//     header('Content-Type: text/csv');
+//     header('Content-Disposition: attachment; filename="' . $filename . '"');
+//     header('Pragma: no-cache');
+//     header('Expires: 0');
+    
+//     $output = fopen('php://output', 'w');
+    
+//     // Add headers with friendly names
+//     $headers = array(
+//         'Employee ID',
+//         'Full Name',
+//         'Email',
+//         'Designation',
+//         'Department',
+//         'Phone',
+//         'Blood Group',
+//         'CFMS ID',
+//         'HRMS ID',
+//         'Status',
+//         'Emergency Contact',
+//         'EHS Card',
+//         'QR/Barcode',
+//         'Depot Location',
+//         'Last Working Place',
+//         'Residential Address',
+//         'Additional Info'
+//     );
+//     fputcsv($output, $headers);
+    
+//     foreach ($users as $user) {
+//         $row = array(
+//             get_user_meta($user->ID, 'emp_id', true),
+//             get_user_meta($user->ID, 'emp_full_name', true),
+//             $user->user_email
+//         );
+        
+//         foreach ($meta_fields as $field) {
+//             $row[] = get_user_meta($user->ID, $field, true);
+//         }
+//         fputcsv($output, $row);
+//     }
+    
+//     fclose($output);
+//     exit();
+// }
+// add_action('admin_init', 'wp_smart_badge_export_users');
+
+// // Handle CSV Import
+// function wp_smart_badge_import_users() {
+//     if (!current_user_can('manage_options')) {
+//         return;
+//     }
+
+//     if (!isset($_POST['import_users_nonce']) || !wp_verify_nonce($_POST['import_users_nonce'], 'import_users_csv')) {
+//         return;
+//     }
+
+//     if (!isset($_FILES['import_users_file'])) {
+//         wp_die('No file uploaded');
+//     }
+
+//     $file = $_FILES['import_users_file'];
+    
+//     // Basic validation
+//     if ($file['error'] !== UPLOAD_ERR_OK) {
+//         wp_die('Error uploading file');
+//     }
+
+//     // Accept both text/csv and application/vnd.ms-excel (some systems save CSV with this mime type)
+//     $allowed_types = array('text/csv', 'application/vnd.ms-excel');
+//     if (!in_array($file['type'], $allowed_types)) {
+//         wp_die('Please upload a CSV file');
+//     }
+
+//     global $wpdb;
+//     $table_name = $wpdb->prefix . 'smart_badge_users';
+//     $success_count = 0;
+//     $error_count = 0;
+    
+//     // Header mapping (CSV header => DB field)
+//     $header_mapping = array(
+//         'Employee ID' => 'emp_id',
+//         'Full Name' => 'emp_full_name',
+//         'Email' => 'user_email',
+//         'Designation' => 'emp_designation',
+//         'Department' => 'emp_department',
+//         'Phone' => 'emp_phone',
+//         'Blood Group' => 'emp_blood_group',
+//         'CFMS ID' => 'emp_cfms_id',
+//         'HRMS ID' => 'emp_hrms_id',
+//         'Status' => 'emp_status',
+//         'Emergency Contact' => 'emp_emergency_contact',
+//         'EHS Card' => 'emp_ehs_card',
+//         'QR/Barcode' => 'emp_barcode',
+//         'Depot Location' => 'emp_depot_location',
+//         'Last Working Place' => 'emp_last_working',
+//         'Residential Address' => 'emp_residential_address',
+//         'Additional Info' => 'employee_info'
+//     );
+
+//     $success_count = 0;
+//     $error_count = 0;
+//     $row_number = 1;
+
+//     while (($data = fgetcsv($handle)) !== false) {
+//         $row_number++;
+//         if (count($data) !== count($headers)) {
+//             $error_count++;
+//             continue;
+//         }
+
+//         $user_data = array();
+        
+//         // Map CSV data to user fields
+//         foreach ($headers as $index => $header) {
+//             if (isset($header_mapping[$header]) && isset($data[$index])) {
+//                 $user_data[$header_mapping[$header]] = sanitize_text_field($data[$index]);
+//             }
+//         }
+
+//         // Validate required fields
+//         if (empty($user_data['emp_id'])) {
+//             $error_count++;
+//             continue;
+//         }
+
+//         // Check if user exists
+//         $existing_user = get_users(array(
+//             'meta_key' => 'emp_id',
+//             'meta_value' => $user_data['emp_id'],
+//             'number' => 1
+//         ));
+
+//         try {
+//             if (!empty($existing_user)) {
+//                 $user_id = $existing_user[0]->ID;
+                
+//                 // Update existing user
+//                 if (isset($user_data['user_email'])) {
+//                     wp_update_user(array(
+//                         'ID' => $user_id,
+//                         'user_email' => $user_data['user_email']
+//                     ));
+//                 }
+//             } else {
+//                 // Create new user
+//                 $username = sanitize_user($user_data['emp_id']);
+//                 $email = !empty($user_data['user_email']) ? $user_data['user_email'] : $username . '@example.com';
+                
+//                 $user_id = wp_create_user($username, wp_generate_password(), $email);
+//                 if (is_wp_error($user_id)) {
+//                     $error_count++;
+//                     continue;
+//                 }
+                
+//                 // Set role
+//                 $user = new WP_User($user_id);
+//                 $user->set_role('subscriber');
+//             }
+
+//             // Update user meta
+//             foreach ($user_data as $meta_key => $meta_value) {
+//                 if ($meta_key !== 'user_email') {
+//                     update_user_meta($user_id, $meta_key, $meta_value);
+//                 }
+//             }
+
+//             $success_count++;
+//         } catch (Exception $e) {
+//             $error_count++;
+//             $errors[] = "Error processing user " . $user_data['emp_id'] . ": " . $e->getMessage();
+//         }
+//     }
+
+//     fclose($handle);
+
+//     // Store errors in transient for display
+//     if (!empty($errors)) {
+//         set_transient('wp_smart_badge_import_errors', $errors, 60);
+//     }
+
+//     // Redirect with status
+//     $status = sprintf('imported=%d&errors=%d', $success_count, $error_count);
+//     wp_safe_redirect(add_query_arg('import_status', $status, wp_get_referer()));
+//     exit();
+// }
+// add_action('admin_init', 'wp_smart_badge_import_users');
+
+// // Add admin notices for import status
+// function wp_smart_badge_admin_notices() {
+//     if (!isset($_GET['import_status'])) {
+//         return;
+//     }
+
+//     $status = $_GET['import_status'];
+//     $notice_class = 'notice-info';
+//     $message = '';
+
+//     switch ($status) {
+//         case 'no_file':
+//             $notice_class = 'notice-error';
+//             $message = 'Please select a file to import.';
+//             break;
+//         case 'upload_error':
+//             $notice_class = 'notice-error';
+//             $message = 'Error uploading file. Please try again.';
+//             break;
+//         case 'file_error':
+//             $notice_class = 'notice-error';
+//             $message = 'Error reading file. Please check the file format.';
+//             break;
+//         case 'invalid_format':
+//             $notice_class = 'notice-error';
+//             $message = 'Invalid file format. Please check the CSV structure.';
+//             break;
+//         case 'invalid_type':
+//             $notice_class = 'notice-error';
+//             $message = 'Invalid file type. Please upload a CSV file.';
+//             break;
+//         default:
+//             if (strpos($status, 'imported=') !== false) {
+//                 preg_match('/imported=(\d+)&errors=(\d+)/', $status, $matches);
+//                 $success = intval($matches[1]);
+//                 $errors = intval($matches[2]);
+                
+//                 if ($success > 0) {
+//                     $notice_class = 'notice-success';
+//                     $message = "Successfully imported {$success} users.";
+//                 }
+                
+//                 if ($errors > 0) {
+//                     // Show error details if available
+//                     $error_details = get_transient('wp_smart_badge_import_errors');
+//                     if ($error_details) {
+//                         $message .= "<br>Failed to import {$errors} users:";
+//                         $message .= "<ul style='list-style-type: disc; margin-left: 20px;'>";
+//                         foreach ($error_details as $error) {
+//                             $message .= "<li>" . esc_html($error) . "</li>";
+//                         }
+//                         $message .= "</ul>";
+//                         delete_transient('wp_smart_badge_import_errors');
+//                     } else {
+//                         $message .= "<br>Failed to import {$errors} users.";
+//                     }
+//                     $notice_class = 'notice-warning';
+//                 }
+//             }
+//     }
+
+//     if ($message) {
+//         printf(
+//             '<div class="notice %s is-dismissible"><p>%s</p></div>',
+//             esc_attr($notice_class),
+//             wp_kses_post($message)
+//         );
+//     }
+// }
+// add_action('admin_notices', 'wp_smart_badge_admin_notices');
