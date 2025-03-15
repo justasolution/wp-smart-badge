@@ -1293,71 +1293,410 @@ function add_badge_generation_styles() {
 // AJAX endpoint for CSV import
 add_action('wp_ajax_import_users_csv', 'handle_import_users_csv');
 function handle_import_users_csv() {
-    check_ajax_referer('wp_smart_badge_nonce', 'nonce');
-
-    if (!current_user_can('manage_options')) {
-        wp_send_json_error('Insufficient permissions');
+    // Verify nonce for security
+    if (!check_ajax_referer('wp_smart_badge_nonce', 'nonce', false)) {
+        wp_send_json_error('Security check failed. Please refresh the page and try again.', 403);
         return;
     }
 
+    // Check user permissions
+    if (!current_user_can('manage_options')) {
+        wp_send_json_error('Insufficient permissions. You do not have permission to import data.', 403);
+        return;
+    }
+
+    // Log the import attempt for debugging
+    wp_smart_badge_log('CSV import initiated', array('user' => wp_get_current_user()->user_login));
+
+    // Validate input data
+    if (!isset($_POST['users_data'])) {
+        wp_send_json_error('No data provided for import.', 400);
+        return;
+    }
+
+    // Decode and validate JSON data
     $users_data = json_decode(stripslashes($_POST['users_data']), true);
+    
+    // Log the received data for debugging
+    wp_smart_badge_log('CSV import data received', array(
+        'data_count' => is_array($users_data) ? count($users_data) : 'not_array',
+        'data_sample' => is_array($users_data) && !empty($users_data) ? json_encode(array_slice($users_data, 0, 2)) : 'empty'
+    ));
+    
     if (!is_array($users_data)) {
-        wp_send_json_error('Invalid data format');
+        wp_send_json_error('Invalid data format. The data is not in the expected format.', 400);
+        return;
+    }
+    
+    if (empty($users_data)) {
+        wp_send_json_error('No data records found in the CSV file. Please make sure your CSV file contains valid data rows.', 400);
         return;
     }
 
     global $wpdb;
-    $table_name = $wpdb->prefix . 'smart_badge_users';
+    $table_name = $wpdb->prefix . 'users';
+    
+    // Check if table exists
+    $table_exists = $wpdb->get_var("SHOW TABLES LIKE '$table_name'") === $table_name;
+    
+    if (!$table_exists) {
+        wp_smart_badge_log('Table does not exist', array('table_name' => $table_name));
+        wp_send_json_error("Error: The database table '$table_name' does not exist. Please activate/deactivate the plugin to create the table.", 500);
+        return;
+    }
+    
+    // Log the table name for debugging
+    wp_smart_badge_log('Using table', array('table_name' => $table_name));
+    
     $success_count = 0;
+    $update_count = 0;
+    $insert_count = 0;
     $errors = array();
 
-    foreach ($users_data as $user) {
-        // Sanitize and validate data
-        $data = array(
-            'emp_id' => sanitize_text_field($user['emp_id']),
-            'emp_full_name' => sanitize_text_field($user['emp_full_name']),
-            'emp_cfms_id' => sanitize_text_field($user['emp_cfms_id']),
-            'emp_hrms_id' => sanitize_text_field($user['emp_hrms_id']),
-            'emp_designation' => sanitize_text_field($user['emp_designation']),
-            'emp_department' => sanitize_text_field($user['emp_department']),
-            'emp_ehs_card' => sanitize_text_field($user['emp_ehs_card']),
-            'emp_phone' => sanitize_text_field($user['emp_phone']),
-            'emp_blood_group' => sanitize_text_field($user['emp_blood_group']),
-            'emp_emergency_contact' => sanitize_text_field($user['emp_emergency_contact']),
-            'emp_status' => sanitize_text_field($user['emp_status'])
-        );
+    // Begin transaction for better data integrity
+    $wpdb->query('START TRANSACTION');
+    
+    // Initialize arrays to track processing details
+    $processed_records = array();
+    $skipped_records = array();
+    $error_details = array();
 
-        // Check if employee already exists
-        $existing = $wpdb->get_var($wpdb->prepare(
-            "SELECT ID FROM $table_name WHERE emp_id = %s",
-            $data['emp_id']
-        ));
+    try {
+        foreach ($users_data as $index => $user) {
+            // Validate required fields - we need at least a name for WordPress users
+            if (empty($user['emp_full_name'])) {
+                $errors[] = "Row " . ($index + 1) . ": Missing required field (Full Name)";
+                $skipped_records[] = array(
+                    'row' => $index + 1,
+                    'data' => $user,
+                    'reason' => 'Missing required field (Full Name)'
+                );
+                continue;
+            }
+            
+            // Generate email if not provided - required for WordPress users
+            if (empty($user['emp_email'])) {
+                // Create email from name: convert to lowercase, replace spaces with dots, add domain
+                $name_for_email = strtolower(str_replace(' ', '.', trim($user['emp_full_name'])));
+                $user['emp_email'] = $name_for_email . '@example.com';
+            }
+            
+            // Map CSV fields to expected structure if they're in a different format
+            // This handles cases where the CSV might have "Full Name" instead of "emp_full_name"
+            if (isset($user['Full Name']) && empty($user['emp_full_name'])) {
+                $user['emp_full_name'] = $user['Full Name'];
+            }
+            if (isset($user['Employee ID']) && empty($user['emp_id'])) {
+                $user['emp_id'] = $user['Employee ID'];
+            }
+            if (isset($user['CFMS ID']) && empty($user['emp_cfms_id'])) {
+                $user['emp_cfms_id'] = $user['CFMS ID'];
+            }
+            if (isset($user['HRMS ID']) && empty($user['emp_hrms_id'])) {
+                $user['emp_hrms_id'] = $user['HRMS ID'];
+            }
+            if (isset($user['Designation']) && empty($user['emp_designation'])) {
+                $user['emp_designation'] = $user['Designation'];
+            }
+            if (isset($user['Department']) && empty($user['emp_department'])) {
+                $user['emp_department'] = $user['Department'];
+            }
+            if (isset($user['EHS Card']) && empty($user['emp_ehs_card'])) {
+                $user['emp_ehs_card'] = $user['EHS Card'];
+            }
+            if (isset($user['Phone']) && empty($user['emp_phone'])) {
+                $user['emp_phone'] = $user['Phone'];
+            }
+            if (isset($user['Blood Group']) && empty($user['emp_blood_group'])) {
+                $user['emp_blood_group'] = $user['Blood Group'];
+            }
+            if (isset($user['Emergency Contact']) && empty($user['emp_emergency_contact'])) {
+                $user['emp_emergency_contact'] = $user['Emergency Contact'];
+            }
+            if (isset($user['Status']) && empty($user['emp_status'])) {
+                $user['emp_status'] = $user['Status'];
+            }
+            if (isset($user['QR/Barcode']) && empty($user['emp_barcode'])) {
+                $user['emp_barcode'] = $user['QR/Barcode'];
+            }
+            if (isset($user['Depot Location']) && empty($user['emp_depot_location'])) {
+                $user['emp_depot_location'] = $user['Depot Location'];
+            }
+            if (isset($user['Last Working Place']) && empty($user['emp_last_working'])) {
+                $user['emp_last_working'] = $user['Last Working Place'];
+            }
+            if (isset($user['Residential Address']) && empty($user['emp_residential_address'])) {
+                $user['emp_residential_address'] = $user['Residential Address'];
+            }
+            
+            // Generate username if not provided - required for WordPress users
+            if (empty($user['username'])) {
+                // Create username from email (without domain) or from name
+                $email_parts = explode('@', $user['emp_email']);
+                $username = $email_parts[0];
+                
+                // Ensure username is unique
+                $username_exists = username_exists($username);
+                if ($username_exists) {
+                    $i = 1;
+                    $base_username = $username;
+                    while (username_exists($username)) {
+                        $username = $base_username . $i;
+                        $i++;
+                    }
+                }
+                
+                $user['username'] = $username;
+            }
 
-        if ($existing) {
-            // Update existing record
-            $result = $wpdb->update(
-                $table_name,
-                $data,
-                array('emp_id' => $data['emp_id'])
+            // Split full name into first and last name for WordPress users
+            $name_parts = explode(' ', $user['emp_full_name']);
+            $first_name = $name_parts[0];
+            $last_name = '';
+            if (count($name_parts) > 1) {
+                $last_name = implode(' ', array_slice($name_parts, 1));
+            }
+            
+            // Generate a random password
+            $random_password = wp_generate_password(12, true, false);
+            
+            // Prepare WordPress user data
+            $wp_user_data = array(
+                'user_login' => $user['username'],
+                'user_email' => $user['emp_email'],
+                'first_name' => $first_name,
+                'last_name' => $last_name,
+                'display_name' => $user['emp_full_name'],
+                'user_pass' => $random_password,
+                'role' => 'subscriber' // Default role
             );
-        } else {
-            // Insert new record
-            $result = $wpdb->insert($table_name, $data);
+            
+            // Prepare meta data for user meta table - keep the emp_ prefix for all fields
+            $user_meta = array(
+                'emp_id' => isset($user['emp_id']) ? sanitize_text_field($user['emp_id']) : '',
+                'emp_cfms_id' => isset($user['emp_cfms_id']) ? sanitize_text_field($user['emp_cfms_id']) : '',
+                'emp_hrms_id' => isset($user['emp_hrms_id']) ? sanitize_text_field($user['emp_hrms_id']) : '',
+                'emp_designation' => isset($user['emp_designation']) ? sanitize_text_field($user['emp_designation']) : '',
+                'emp_department' => isset($user['emp_department']) ? sanitize_text_field($user['emp_department']) : '',
+                'emp_ehs_card' => isset($user['emp_ehs_card']) ? sanitize_text_field($user['emp_ehs_card']) : '',
+                'emp_phone' => isset($user['emp_phone']) ? sanitize_text_field($user['emp_phone']) : '',
+                'emp_blood_group' => isset($user['emp_blood_group']) ? sanitize_text_field($user['emp_blood_group']) : '',
+                'emp_emergency_contact' => isset($user['emp_emergency_contact']) ? sanitize_text_field($user['emp_emergency_contact']) : '',
+                'emp_status' => isset($user['emp_status']) && !empty($user['emp_status']) ? sanitize_text_field($user['emp_status']) : 'active',
+                'emp_barcode' => isset($user['emp_barcode']) ? sanitize_text_field($user['emp_barcode']) : '',
+                'emp_depot_location' => isset($user['emp_depot_location']) ? sanitize_text_field($user['emp_depot_location']) : '',
+                'emp_last_working' => isset($user['emp_last_working']) ? sanitize_text_field($user['emp_last_working']) : '',
+                'emp_residential_address' => isset($user['emp_residential_address']) ? sanitize_text_field($user['emp_residential_address']) : '',
+                'emp_full_name' => sanitize_text_field($user['emp_full_name'])
+            );
+            
+            // Also store the original data as a serialized array for backup/reference
+            $user_meta['_wp_smart_badge_original_data'] = maybe_serialize($original_data);
+            
+            // Store the original data for logging
+            $original_data = array(
+                'emp_id' => isset($user['emp_id']) ? sanitize_text_field($user['emp_id']) : '',
+                'emp_full_name' => sanitize_text_field($user['emp_full_name']),
+                'emp_email' => $user['emp_email']
+            );
+            
+            // Log the data being processed
+            wp_smart_badge_log('Processing record', array(
+                'row' => $index + 1,
+                'emp_id' => $original_data['emp_id'],
+                'emp_full_name' => $original_data['emp_full_name'],
+                'user_login' => $wp_user_data['user_login'],
+                'user_email' => $wp_user_data['user_email']
+            ));
+
+            // Check if user already exists by email
+            $existing_user_id = email_exists($wp_user_data['user_email']);
+            
+            // Log the existence check for debugging
+            wp_smart_badge_log('User existence check', array(
+                'email' => $wp_user_data['user_email'],
+                'existing_user_id' => $existing_user_id
+            ));
+
+            if ($existing_user_id) {
+                // Update existing WordPress user
+                $wp_user_data['ID'] = $existing_user_id; // Set user ID for update
+                $result = wp_update_user($wp_user_data);
+                
+                // Log the update operation
+                wp_smart_badge_log('Update WordPress user', array(
+                    'user_id' => $existing_user_id,
+                    'user_login' => $wp_user_data['user_login'],
+                    'user_email' => $wp_user_data['user_email']
+                ));
+                
+                if (!is_wp_error($result)) {
+                    // Update user meta data
+                    foreach ($user_meta as $meta_key => $meta_value) {
+                        update_user_meta($existing_user_id, $meta_key, $meta_value);
+                    }
+                    
+                    // Set default photo if not provided
+                    if (empty(get_user_meta($existing_user_id, 'emp_photo', true))) {
+                        update_user_meta($existing_user_id, 'emp_photo', plugins_url('/assets/images/default-avatar.jpg', __FILE__));
+                    }
+                    
+                    $update_count++;
+                    $success_count++;
+                    $processed_records[] = array(
+                        'row' => $index + 1,
+                        'emp_id' => $original_data['emp_id'],
+                        'user_id' => $existing_user_id,
+                        'action' => 'updated'
+                    );
+                } else {
+                    $error_message = "Error updating user: " . $original_data['emp_full_name'] . " - " . $result->get_error_message();
+                    $errors[] = $error_message;
+                    $error_details[] = array(
+                        'row' => $index + 1,
+                        'emp_id' => $original_data['emp_id'],
+                        'error' => $result->get_error_message()
+                    );
+                    wp_smart_badge_log('Update error', array(
+                        'emp_id' => $original_data['emp_id'],
+                        'error' => $result->get_error_message()
+                    ));
+                }
+            } else {
+                // Insert new WordPress user
+                $result = wp_insert_user($wp_user_data);
+                
+                // Log the insert operation
+                wp_smart_badge_log('Insert WordPress user', array(
+                    'user_login' => $wp_user_data['user_login'],
+                    'user_email' => $wp_user_data['user_email']
+                ));
+                
+                if (!is_wp_error($result)) {
+                    // Add user meta data for the new user
+                    foreach ($user_meta as $meta_key => $meta_value) {
+                        update_user_meta($result, $meta_key, $meta_value);
+                    }
+                    
+                    // Set default photo if not provided
+                    if (empty(get_user_meta($result, 'emp_photo', true))) {
+                        update_user_meta($result, 'emp_photo', plugins_url('/assets/images/default-avatar.jpg', __FILE__));
+                    }
+                    
+                    $insert_count++;
+                    $success_count++;
+                    $processed_records[] = array(
+                        'row' => $index + 1,
+                        'emp_id' => $original_data['emp_id'],
+                        'user_id' => $result,
+                        'action' => 'inserted'
+                    );
+                } else {
+                    $error_message = "Error inserting user: " . $original_data['emp_full_name'] . " - " . $result->get_error_message();
+                    $errors[] = $error_message;
+                    $error_details[] = array(
+                        'row' => $index + 1,
+                        'emp_id' => $original_data['emp_id'],
+                        'error' => $result->get_error_message()
+                    );
+                    wp_smart_badge_log('Insert error', array(
+                        'emp_id' => $original_data['emp_id'],
+                        'error' => $result->get_error_message()
+                    ));
+                }
+            }
         }
 
-        if ($result) {
-            $success_count++;
+        // Commit transaction if no critical errors
+        if ($success_count > 0) {
+            $wpdb->query('COMMIT');
+            wp_smart_badge_log('Import transaction committed', array(
+                'success_count' => $success_count,
+                'update_count' => $update_count,
+                'insert_count' => $insert_count
+            ));
         } else {
-            $errors[] = "Error processing employee ID: " . $data['emp_id'];
+            $wpdb->query('ROLLBACK');
+            wp_smart_badge_log('Import transaction rolled back', array(
+                'error_count' => count($errors),
+                'skipped_count' => count($skipped_records),
+                'error_details' => $error_details,
+                'skipped_records' => $skipped_records
+            ));
+            
+            // Prepare a more detailed error message
+            $detailed_error = 'No records were successfully processed. Import failed.\n';
+            
+            if (!empty($skipped_records)) {
+                $detailed_error .= 'Skipped records: ' . count($skipped_records) . ' (missing required fields)\n';
+            }
+            
+            if (!empty($error_details)) {
+                $detailed_error .= 'Database errors: ' . count($error_details) . '\n';
+                // Include first few error details
+                $error_samples = array_slice($error_details, 0, 3);
+                foreach ($error_samples as $error) {
+                    $detailed_error .= "Row {$error['row']} (ID: {$error['emp_id']}): {$error['error']}\n";
+                }
+                if (count($error_details) > 3) {
+                    $detailed_error .= '... and ' . (count($error_details) - 3) . ' more errors';
+                }
+            }
+            
+            wp_send_json_error($detailed_error, 500);
+            return;
         }
+    } catch (Exception $e) {
+        // Rollback on exception
+        $wpdb->query('ROLLBACK');
+        wp_smart_badge_log('CSV import exception', array(
+            'error' => $e->getMessage(),
+            'trace' => $e->getTraceAsString(),
+            'line' => $e->getLine(),
+            'file' => $e->getFile()
+        ));
+        wp_send_json_error('Error during import: ' . $e->getMessage() . ' (Line: ' . $e->getLine() . ')', 500);
+        return;
     }
 
     // Get updated data
     $updated_data = $wpdb->get_results("SELECT * FROM $table_name ORDER BY ID DESC");
 
+    // Create detailed success message
+    $message = "Successfully processed $success_count records";
+    if ($update_count > 0 && $insert_count > 0) {
+        $message .= " ($insert_count new, $update_count updated)";
+    } else if ($update_count > 0) {
+        $message .= " (all records updated)";
+    } else if ($insert_count > 0) {
+        $message .= " (all records newly added)";
+    }
+    
+    if (count($errors) > 0) {
+        $message .= ". Errors: " . implode("; ", $errors);
+    }
+
+    // Log success
+    wp_smart_badge_log('CSV import completed', array(
+        'success_count' => $success_count,
+        'update_count' => $update_count,
+        'insert_count' => $insert_count,
+        'error_count' => count($errors)
+    ));
+
     wp_send_json_success(array(
-        'message' => "Successfully processed $success_count records" . (count($errors) > 0 ? ". Errors: " . implode(", ", $errors) : ""),
-        'data' => $updated_data
+        'message' => $message,
+        'data' => $updated_data,
+        'stats' => array(
+            'success_count' => $success_count,
+            'update_count' => $update_count,
+            'insert_count' => $insert_count,
+            'error_count' => count($errors),
+            'skipped_count' => count($skipped_records)
+        ),
+        'processed_records' => $processed_records,
+        'skipped_records' => $skipped_records,
+        'errors' => $errors
     ));
 }
 
@@ -1370,22 +1709,27 @@ function handle_csv_actions() {
 
     // Handle CSV Export
     if (isset($_POST['export_users']) && check_admin_referer('export_users_csv', 'export_users_nonce')) {
-        global $wpdb;
-        $table_name = $wpdb->prefix . 'smart_badge_users';
-        
         // Get all users
-        $users = $wpdb->get_results("SELECT * FROM $table_name ORDER BY ID DESC", ARRAY_A);
+        $users = get_users(array(
+            'orderby' => 'ID',
+            'order' => 'DESC'
+        ));
         
         // Set headers for CSV download
         header('Content-Type: text/csv');
-        header('Content-Disposition: attachment; filename="smart_badge_users_' . date('Y-m-d') . '.csv"');
+        header('Content-Disposition: attachment; filename="users_' . date('Y-m-d') . '.csv"');
         
         // Create output stream
         $output = fopen('php://output', 'w');
         
-        // CSV Headers mapping to display names
+        // CSV Headers mapping to user meta fields
         $headers = array(
+            'User ID' => 'ID',
+            'Username' => 'user_login',
+            'Email' => 'user_email',
             'Employee ID' => 'emp_id',
+            'First Name' => 'first_name',
+            'Last Name' => 'last_name',
             'Full Name' => 'emp_full_name',
             'CFMS ID' => 'emp_cfms_id',
             'HRMS ID' => 'emp_hrms_id',
@@ -1395,7 +1739,8 @@ function handle_csv_actions() {
             'Phone' => 'emp_phone',
             'Blood Group' => 'emp_blood_group',
             'Emergency Contact' => 'emp_emergency_contact',
-            'Status' => 'emp_status'
+            'Status' => 'emp_status',
+            'Photo URL' => 'emp_photo'
         );
         
         // Write display headers
@@ -1403,10 +1748,20 @@ function handle_csv_actions() {
         
         // Add data rows with mapped fields
         foreach ($users as $user) {
+            $user_id = $user->ID;
             $row = array();
+            
             foreach ($headers as $display => $field) {
-                $row[] = isset($user[$field]) ? $user[$field] : '';
+                if (in_array($field, array('ID', 'user_login', 'user_email'))) {
+                    // Core user data
+                    $row[] = $user->$field;
+                } else {
+                    // User meta data
+                    $meta_value = get_user_meta($user_id, $field, true);
+                    $row[] = $meta_value;
+                }
             }
+            
             fputcsv($output, $row);
         }
         
@@ -1434,7 +1789,7 @@ function handle_csv_actions() {
         }
 
         global $wpdb;
-        $table_name = $wpdb->prefix . 'smart_badge_users';
+        $table_name = $wpdb->prefix . 'users';
         $success_count = 0;
         $error_count = 0;
         
@@ -2224,7 +2579,7 @@ function get_user_data($user_id) {
 //         $users = get_users();
 //     }
 
-//     $filename = 'smart_badge_users_' . date('Y-m-d') . '.csv';
+//     $filename = 'users_' . date('Y-m-d') . '.csv';
     
 //     header('Content-Type: text/csv');
 //     header('Content-Disposition: attachment; filename="' . $filename . '"');
@@ -2301,7 +2656,7 @@ function get_user_data($user_id) {
 //     }
 
 //     global $wpdb;
-//     $table_name = $wpdb->prefix . 'smart_badge_users';
+//     $table_name = $wpdb->prefix . 'users';
 //     $success_count = 0;
 //     $error_count = 0;
     

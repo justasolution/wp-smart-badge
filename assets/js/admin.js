@@ -188,7 +188,8 @@ jQuery(document).ready(function($) {
                     onlySelected: false,
                     columnKeys: ['emp_id', 'emp_full_name', 'emp_cfms_id', 'emp_hrms_id', 'emp_designation', 
                                 'emp_department', 'emp_ehs_card', 'emp_phone', 'emp_blood_group', 
-                                'emp_emergency_contact', 'emp_status']
+                                'emp_emergency_contact', 'emp_status', 'emp_barcode', 'emp_depot_location',
+                                'emp_last_working', 'emp_residential_address']
                 });
             });
 
@@ -215,62 +216,394 @@ jQuery(document).ready(function($) {
                     reader.onload = function(event) {
                         const csvData = event.target.result;
                         const lines = csvData.split('\n');
-                        const headers = lines[0].split(',').map(h => h.trim());
+                        const headers = lines[0].split(',').map(h => h.replace(/"/g, '').trim());
+                        
+                        // Map CSV headers to AG Grid field names
+                        const headerMapping = {
+                            'Employee ID': 'emp_id',
+                            'Full Name': 'emp_full_name',
+                            'CFMS ID': 'emp_cfms_id',
+                            'HRMS ID': 'emp_hrms_id',
+                            'Designation': 'emp_designation',
+                            'Department': 'emp_department',
+                            'EHS Card': 'emp_ehs_card',
+                            'Phone': 'emp_phone',
+                            'Blood Group': 'emp_blood_group',
+                            'Emergency Contact': 'emp_emergency_contact',
+                            'Status': 'emp_status',
+                            'QR/Barcode': 'emp_barcode',
+                            'Depot Location': 'emp_depot_location',
+                            'Last Working Place': 'emp_last_working',
+                            'Residential Address': 'emp_residential_address'
+                        };
                         
                         const newData = [];
                         for(let i = 1; i < lines.length; i++) {
                             if(!lines[i]) continue;
-                            const values = lines[i].split(',').map(v => v.trim());
+                            
+                            // Handle quoted CSV values properly
+                            let values = [];
+                            let inQuote = false;
+                            let currentValue = '';
+                            
+                            for(let j = 0; j < lines[i].length; j++) {
+                                const char = lines[i][j];
+                                
+                                if (char === '"') {
+                                    inQuote = !inQuote;
+                                } else if (char === ',' && !inQuote) {
+                                    values.push(currentValue.trim());
+                                    currentValue = '';
+                                } else {
+                                    currentValue += char;
+                                }
+                            }
+                            
+                            // Add the last value
+                            values.push(currentValue.trim());
+                            
+                            // Clean up values (remove quotes)
+                            values = values.map(v => v.replace(/"/g, '').trim());
+                            
                             const row = {};
                             headers.forEach((header, index) => {
-                                row[header] = values[index] || '';
+                                // Map to the correct field name if available
+                                const fieldName = headerMapping[header] || header;
+                                row[fieldName] = values[index] || '';
                             });
                             newData.push(row);
                         }
 
-                        // Show confirmation modal
-                        const confirmModal = document.createElement('div');
-                        confirmModal.className = 'modal';
-                        confirmModal.innerHTML = `
-                            <div class="modal-content">
-                                <h3>Import Confirmation</h3>
-                                <p>Are you sure you want to import ${newData.length} records?</p>
+                        // Create a preview modal with data table
+                        const previewModal = document.createElement('div');
+                        previewModal.className = 'modal csv-preview-modal';
+                        previewModal.style.display = 'block';
+                        
+                        // Create field mapping section to show how CSV fields map to database fields
+                        let fieldMappingHtml = '<div class="field-mapping-section">';
+                        fieldMappingHtml += '<h4>Field Mapping</h4>';
+                        fieldMappingHtml += '<div class="field-mapping-grid">';
+                        
+                        headers.forEach(header => {
+                            const dbField = headerMapping[header] || header.toLowerCase().replace(/\s+/g, '_');
+                            fieldMappingHtml += `
+                                <div class="field-mapping-item">
+                                    <span class="csv-field">${header}</span> 
+                                    <span class="mapping-arrow">→</span>
+                                    <span class="db-field">${dbField}</span>
+                                </div>
+                            `;
+                        });
+                        
+                        fieldMappingHtml += '</div></div>';
+                        
+                        // Create table HTML for preview
+                        let tableHtml = '<table class="wp-list-table widefat fixed striped csv-preview-table">';
+                        tableHtml += '<thead><tr>';
+                        headers.forEach(header => {
+                            tableHtml += `<th>${header}</th>`;
+                        });
+                        tableHtml += '</tr></thead><tbody>';
+                        
+                        // Show up to 10 rows in preview
+                        const previewRows = newData.slice(0, 10);
+                        let hasErrors = false;
+                        
+                        previewRows.forEach(row => {
+                            // Check for required fields
+                            const missingRequiredFields = !row['emp_id'] || !row['emp_full_name'];
+                            const rowClass = missingRequiredFields ? 'class="error-row"' : '';
+                            hasErrors = hasErrors || missingRequiredFields;
+                            
+                            tableHtml += `<tr ${rowClass}>`;
+                            headers.forEach(header => {
+                                const fieldName = headerMapping[header] || header.toLowerCase().replace(/\s+/g, '_');
+                                const isRequired = (header === 'Employee ID' || header === 'Full Name');
+                                const isEmpty = !row[fieldName];
+                                const cellClass = isRequired && isEmpty ? 'class="error-cell"' : '';
+                                const cellTitle = isRequired && isEmpty ? 'title="Required field"' : '';
+                                
+                                tableHtml += `<td ${cellClass} ${cellTitle}>${row[fieldName] || ''}</td>`;
+                            });
+                            tableHtml += '</tr>';
+                        });
+                        
+                        tableHtml += '</tbody></table>';
+                        
+                        // Add more rows indicator if needed
+                        let moreRowsHtml = '';
+                        if (newData.length > 10) {
+                            moreRowsHtml = `<p class="more-rows-indicator">${newData.length - 10} more rows not shown in preview</p>`;
+                        }
+                        
+                        // Add validation message if errors found
+                        let validationHtml = '';
+                        if (hasErrors) {
+                            validationHtml = `
+                                <div class="validation-warning">
+                                    <p><strong>Warning:</strong> Some records are missing required fields (Employee ID or Full Name). 
+                                    These records are highlighted in red and may not import correctly.</p>
+                                </div>
+                            `;
+                        }
+                        
+                        previewModal.innerHTML = `
+                            <div class="modal-content csv-preview-content">
+                                <span class="close">&times;</span>
+                                <h3>CSV Import Preview</h3>
+                                <p>Please review the data before importing. The preview shows up to 10 rows.</p>
+                                ${fieldMappingHtml}
+                                ${validationHtml}
+                                <div class="csv-table-container">
+                                    ${tableHtml}
+                                    ${moreRowsHtml}
+                                </div>
+                                <p>Total records to import: <strong>${newData.length}</strong></p>
                                 <div class="modal-actions">
-                                    <button class="button button-primary confirm-import">Confirm</button>
+                                    <button class="button button-primary confirm-import">Import Data</button>
                                     <button class="button cancel-import">Cancel</button>
                                 </div>
                             </div>
                         `;
-                        document.body.appendChild(confirmModal);
+                        document.body.appendChild(previewModal);
+                        
+                        // Add styles for the preview modal
+                        const style = document.createElement('style');
+                        style.textContent = `
+                            .csv-preview-modal .modal-content {
+                                width: 90%;
+                                max-width: 1200px;
+                                max-height: 80vh;
+                                overflow-y: auto;
+                            }
+                            .field-mapping-section {
+                                margin-bottom: 20px;
+                                padding: 10px;
+                                background-color: #f9f9f9;
+                                border: 1px solid #e5e5e5;
+                                border-radius: 3px;
+                            }
+                            .field-mapping-section h4 {
+                                margin-top: 0;
+                                margin-bottom: 10px;
+                            }
+                            .field-mapping-grid {
+                                display: grid;
+                                grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+                                gap: 10px;
+                            }
+                            .field-mapping-item {
+                                display: flex;
+                                align-items: center;
+                                padding: 5px;
+                            }
+                            .csv-field {
+                                font-weight: bold;
+                                color: #23282d;
+                            }
+                            .mapping-arrow {
+                                margin: 0 5px;
+                                color: #666;
+                            }
+                            .db-field {
+                                color: #0073aa;
+                            }
+                            .validation-warning {
+                                background-color: #fff8e5;
+                                border-left: 4px solid #ffb900;
+                                padding: 10px;
+                                margin-bottom: 20px;
+                            }
+                            .csv-table-container {
+                                max-height: 400px;
+                                overflow-y: auto;
+                                margin-bottom: 20px;
+                                border: 1px solid #ddd;
+                            }
+                            .csv-preview-table {
+                                width: 100%;
+                                border-collapse: collapse;
+                            }
+                            .csv-preview-table th, .csv-preview-table td {
+                                padding: 8px;
+                                text-align: left;
+                                border: 1px solid #ddd;
+                            }
+                            .csv-preview-table th {
+                                background-color: #f2f2f2;
+                                position: sticky;
+                                top: 0;
+                                z-index: 10;
+                            }
+                            .error-row {
+                                background-color: #ffeeee !important;
+                            }
+                            .error-cell {
+                                color: #cc0000;
+                                background-color: #ffeeee;
+                            }
+                            .more-rows-indicator {
+                                font-style: italic;
+                                color: #666;
+                                padding: 10px;
+                                text-align: center;
+                                background-color: #f9f9f9;
+                            }
+                        `;
+                        document.head.appendChild(style);
 
-                        confirmModal.querySelector('.confirm-import').onclick = function() {
+                        // Close button handler
+                        previewModal.querySelector('.close').onclick = function() {
+                            previewModal.remove();
+                            document.head.removeChild(style);
+                        };
+
+                        // Confirm import button handler
+                        previewModal.querySelector('.confirm-import').onclick = function() {
+                            // Show loading indicator
+                            const importBtn = this;
+                            const originalText = importBtn.textContent;
+                            importBtn.disabled = true;
+                            importBtn.innerHTML = '<span class="spinner is-active" style="float: none; margin: 0 4px 0 0;"></span> Importing...';
+                            
+                            // Convert data to expected format for server
+                            const processedData = newData.map(row => {
+                                // Create a properly formatted object for the server
+                                const formattedRow = {};
+                                
+                                // Map all fields to their proper names
+                                Object.keys(row).forEach(key => {
+                                    formattedRow[key] = row[key];
+                                });
+                                
+                                return formattedRow;
+                            });
+                            
                             // Send data to server
+                            // Check if we have any data to process
+                            if (processedData.length === 0) {
+                                alert('No data found in the CSV file. Please check your file and try again.');
+                                importBtn.disabled = false;
+                                importBtn.textContent = originalText;
+                                return;
+                            }
+                            
+                            // We're now sending all data to the server, including rows with missing fields
+                            // The server will handle validation and provide detailed error messages
+                            // This allows us to get better error reporting on which specific rows failed
+                            
                             $.ajax({
                                 url: ajaxurl,
                                 type: 'POST',
                                 data: {
                                     action: 'import_users_csv',
-                                    users_data: JSON.stringify(newData),
-                                    nonce: $('#wp_smart_badge_nonce').val()
+                                    users_data: JSON.stringify(processedData),
+                                    nonce: wpSmartBadge.nonce
+                                },
+                                beforeSend: function(xhr) {
+                                    // Add proper authentication headers
+                                    xhr.setRequestHeader('X-WP-Nonce', wpSmartBadge.nonce);
+                                    // Add other headers that might help with authentication
+                                    xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
                                 },
                                 success: function(response) {
                                     if(response.success) {
-                                        alert('Data imported successfully!');
+                                        // Create a more detailed success message
+                                        let successMessage = 'Data imported successfully!';
+                                        if (response.data && response.data.message) {
+                                            successMessage = response.data.message;
+                                        }
+                                        
+                                        // Add detailed stats to the success message
+                                        if (response.data && response.data.stats) {
+                                            const stats = response.data.stats;
+                                            successMessage += `\n\nSummary:\n- Records processed: ${stats.success_count + stats.error_count + stats.skipped_count}\n- Successfully imported: ${stats.success_count}\n- Updated: ${stats.update_count}\n- Inserted: ${stats.insert_count}`;
+                                            
+                                            if (stats.skipped_count > 0) {
+                                                successMessage += `\n- Skipped: ${stats.skipped_count} (missing required fields)`;
+                                            }
+                                            
+                                            if (stats.error_count > 0) {
+                                                successMessage += `\n- Failed: ${stats.error_count}`;
+                                            }
+                                        }
+                                        
+                                        // Show success message
+                                        alert(successMessage);
+                                        
                                         // Refresh grid data
-                                        params.api.setRowData(response.data);
+                                        if (response.data && Array.isArray(response.data.data)) {
+                                            params.api.setRowData(response.data.data);
+                                        } else if (Array.isArray(response.data)) {
+                                            params.api.setRowData(response.data);
+                                        } else {
+                                            // If data format is unexpected, reload the page
+                                            window.location.reload();
+                                        }
                                     } else {
-                                        alert('Error importing data: ' + response.data);
+                                        let errorMessage = 'Error importing data: ' + (response.data || 'Unknown error');
+                                        console.error('Import error details:', response);
+                                        alert(errorMessage);
                                     }
+                                    previewModal.remove();
+                                    document.head.removeChild(style);
                                 },
-                                error: function() {
-                                    alert('Error importing data. Please try again.');
+                                error: function(xhr, status, error) {
+                                    console.error('Import error:', xhr.status, error);
+                                    let errorMessage = 'Error importing data. ';
+                                    
+                                    // Provide more detailed error messages based on HTTP status
+                                    if (xhr.status === 403) {
+                                        errorMessage += 'Permission denied. Please check your authentication or refresh the page and try again.';
+                                    } else if (xhr.status === 401) {
+                                        errorMessage += 'Authentication required. Please log in again.';
+                                    } else if (xhr.status === 500) {
+                                        if (xhr.responseJSON && xhr.responseJSON.data) {
+                                            // Display the detailed error message from the server
+                                            errorMessage = xhr.responseJSON.data;
+                                        } else {
+                                            errorMessage += 'Server error. Please contact the administrator.';
+                                        }
+                                    } else if (xhr.status === 400) {
+                                        if (xhr.responseJSON && xhr.responseJSON.data) {
+                                            // Display the validation error message from the server
+                                            errorMessage = xhr.responseJSON.data;
+                                        } else {
+                                            errorMessage += 'Invalid request. Please check your data and try again.';
+                                        }
+                                    } else if (xhr.status === 0) {
+                                        errorMessage += 'Network error. Please check your internet connection.';
+                                    } else if (xhr.responseJSON && xhr.responseJSON.data) {
+                                        errorMessage += xhr.responseJSON.data;
+                                    } else {
+                                        errorMessage += 'Please try again.';
+                                    }
+                                    
+                                    // Log the full error details to console for debugging
+                                    console.error('Full error details:', {
+                                        status: xhr.status,
+                                        statusText: xhr.statusText,
+                                        responseText: xhr.responseText,
+                                        responseJSON: xhr.responseJSON
+                                    });
+                                    
+                                    // Show error in alert dialog
+                                    alert(errorMessage);
+                                    importBtn.disabled = false;
+                                    importBtn.textContent = originalText;
+                                    
+                                    // If session expired, redirect to login
+                                    if (xhr.status === 401) {
+                                        window.location.href = wpSmartBadge.loginUrl || '/wp-login.php';
+                                    }
                                 }
                             });
-                            confirmModal.remove();
                         };
 
-                        confirmModal.querySelector('.cancel-import').onclick = function() {
-                            confirmModal.remove();
+                        // Cancel button handler
+                        previewModal.querySelector('.cancel-import').onclick = function() {
+                            previewModal.remove();
+                            document.head.removeChild(style);
                         };
                     };
                     reader.readAsText(file);
