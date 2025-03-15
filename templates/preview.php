@@ -17,6 +17,11 @@ if (!defined('ABSPATH')) {
 require_once dirname(__FILE__) . '/../includes/class-badge-generator.php';
 require_once dirname(__FILE__) . '/../includes/class-badge-template.php';
 require_once dirname(__FILE__) . '/../includes/templates/class-class-3-4-template.php';
+require_once dirname(__FILE__) . '/../includes/templates/class-active-employee-horizontal-template.php';
+// require_once dirname(__FILE__) . '/../includes/templates/class-retired-officer-template.php';
+// require_once dirname(__FILE__) . '/../includes/templates/class-retired-medical-template.php';
+// require_once dirname(__FILE__) . '/../includes/templates/class-retired-travel-template.php';
+// require_once dirname(__FILE__) . '/../includes/templates/class-vertical-card-template.php';
 
 $user_ids = isset($_GET['user_ids']) ? array_map('intval', explode(',', $_GET['user_ids'])) : array();
 if (empty($user_ids)) {

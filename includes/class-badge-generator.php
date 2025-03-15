@@ -120,8 +120,12 @@ class Badge_Generator {
         $status = $this->user_data['emp_status'] ?? 'active';
         $template_map = [
             'active' => 'ActiveEmployeeTemplate',
+            'active_horizontal' => 'ActiveEmployeeHorizontalTemplate',
+            'retired_officer' => 'RetiredOfficerTemplate',
             'retired_medical' => 'RetiredMedicalTemplate',
-            'retired_travel' => 'RetiredTravelTemplate'
+            'retired_travel' => 'RetiredTravelTemplate',
+            'class3_and4' => 'Class3And4Template',
+            'vertical_card' => 'VerticalCardTemplate'
         ];
         
         $template_name = $template_map[$status] ?? 'ActiveEmployeeTemplate';

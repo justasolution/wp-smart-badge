@@ -71,7 +71,12 @@ register_activation_hook(__FILE__, function() {
         $template_files = array(
             'class-badge-template.php',
             'class-active-employee-template.php',
-            'class-retired-officer-template.php'
+            'class-active-employee-horizontal-template.php',
+            'class-retired-officer-template.php',
+            'class-retired-medical-template.php',
+            'class-retired-travel-template.php',
+            'class-class-3-and-4-template.php',
+            'class-vertical-card-template.php'
         );
         
         foreach ($template_files as $file) {
@@ -208,6 +213,7 @@ try {
 
 use WpSmartBadge\Templates\BadgeTemplate;
 use WpSmartBadge\Templates\ActiveEmployeeTemplate;
+use WpSmartBadge\Templates\ActiveEmployeeHorizontalTemplate;
 use WpSmartBadge\Templates\RetiredOfficerTemplate;
 use WpSmartBadge\Templates\Class34Template;
 
@@ -2006,6 +2012,7 @@ add_action('wp_ajax_update_user', function() {
 function wp_smart_badge_get_template_class($template_type) {
     $template_map = array(
         'ActiveEmployee' => 'ActiveEmployeeTemplate',
+        'ActiveEmployeeHorizontal' => 'ActiveEmployeeHorizontalTemplate',
         'RetiredOfficer' => 'RetiredOfficerTemplate',
         'RetiredMedical' => 'RetiredMedicalTemplate',
         'RetiredTravel' => 'RetiredTravelTemplate',

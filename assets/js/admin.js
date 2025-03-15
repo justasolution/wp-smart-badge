@@ -98,9 +98,12 @@ jQuery(document).ready(function($) {
         select.dataset.userId = userId;
         select.innerHTML = `
             <option value="ActiveEmployee">Active Employee</option>
+            <option value="ActiveEmployeeHorizontal">Active Employee (Horizontal)</option>
             <option value="RetiredOfficer">Retired Officer</option>
             <option value="RetiredMedical">Retired Medical</option>
             <option value="RetiredTravel">Retired Travel</option>
+            <option value="Class3And4">Class 3 & 4</option>
+            <option value="VerticalCard">Vertical Card</option>
         `;
         select.value = params.data.emp_status?.toLowerCase() === 'retired' ? 'RetiredOfficer' : 'ActiveEmployee';
         

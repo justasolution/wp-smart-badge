@@ -154,7 +154,8 @@ The plugin uses an object-oriented template system for generating ID badges:
    - Provides common functionality like QR code generation and user data handling
 
 2. **Template Types**
-   - `ActiveEmployeeTemplate`: For current employees (horizontal)
+   - `ActiveEmployeeTemplate`: For current employees (vertical)
+   - `ActiveEmployeeHorizontalTemplate`: Alternative layout (horizontal)
    - `ActiveEmployeeTemplate2`: Alternative layout (right-side)
    - `RetiredEmployeeTemplate`: For retired staff
    - `RetiredMedicalTemplate`: For medical cards
