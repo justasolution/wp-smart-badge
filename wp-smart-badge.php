@@ -803,6 +803,7 @@ function wp_smart_badge_handle_preview() {
                 button:hover {
                     background: #135e96;
                 }
+                /*Print styles  sadiq */
                 @media print {
                     body {
                         margin: 0;
