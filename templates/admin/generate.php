@@ -24,21 +24,21 @@ wp_localize_script('wp-smart-badge-admin', 'wpSmartBadge', array(
                 Add New User
             </button>
             
-            <form method="post" enctype="multipart/form-data" style="display: inline-block; margin-left: 10px;">
+            <!--<form method="post" enctype="multipart/form-data" style="display: inline-block; margin-left: 10px;">
                 <?php wp_nonce_field('import_users_csv', 'import_users_nonce'); ?>
                 <input type="file" name="import_users_file" id="import_users_file" accept=".csv" style="display: none;" />
                 <button type="button" class="button" onclick="document.getElementById('import_users_file').click();">
                     Import Users
                 </button>
                 <input type="submit" name="do_import_users" id="do_import_users" style="display: none;" />
-            </form>
+            </form>-->
             
             <form method="post" style="display: inline-block; margin-left: 10px;">
                 <?php wp_nonce_field('export_users_csv', 'export_users_nonce'); ?>
                 <input type="hidden" name="selected_users" id="selectedUsersForExport" value="">
-                <div class="button-group">
+                <!--<div class="button-group">
                     <input type="submit" name="export_users" class="button" value="Export All Users" />
-                    <button type="submit" name="export_selected_users" id="exportSelectedUsers" class="button" disabled>Export Selected Users</button>
+                    <button type="submit" name="export_selected_users" id="exportSelectedUsers" class="button" disabled>Export Selected Users</button>-->
                 </div>
             </form>
 
@@ -718,4 +718,9 @@ document.getElementById('import_users_file').addEventListener('change', function
         document.getElementById('do_import_users').click();
     }
 });
+
+// Sadiq code
+document.getElementById("refreshGrid").addEventListener("click", function() {
+        location.reload();
+    }); 
 </script>
